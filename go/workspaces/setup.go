@@ -3,10 +3,14 @@ package workspaces
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -22,21 +26,27 @@ import (
 //
 //  1. Find out which legal documents the organization has accepted:
 //     GET /iam/v1/terms/{org}                                  (AcceptedTerms)
-//  2. Accept the ones Workspaces needs (WorkspacesTerms):
+//  2. Accept the ones turning it on needs (EnableTerms):
 //     POST /iam/v1/terms/{org}  {"documentIds": [...]}          (AcceptTerms)
-//  3. Turn the feature on, with the plan's allowance:
+//  3. Link a GitHub account (an organization, or your own user) to the
+//     organization. The service refuses step 4 without it. The Chainguard
+//     GitHub App must be installed on that account (GitHubAppInstallURL).
+//     GET  /guardener/v1alpha1/githubAssociations/{org}         (LinkedGitHubOrganizations)
+//     GET  /guardener/v1alpha1/githubAssociations:begin         (BeginGitHubOAuth)
+//     browser: GitHub's authorize page, back to a loopback port (AuthorizeGitHub)
+//     POST /guardener/v1alpha1/githubAssociations/{org}:link    (LinkGitHubOrganization)
+//  4. Turn the feature on, with the plan's allowance:
 //     POST /entitlements/v1alpha1/features/{org}:enableSandbox  (EnableSandbox)
-//  4. Read the result:
+//  5. Read the result:
 //     GET /entitlements/v2beta1/organizationEntitlements?parent={org}
 //     (WorkspacesEntitlement)
 //
-// chainctl also links a GitHub account to the organization between steps 2
-// and 3. That is for Checks and for sessions that act on GitHub; this package
-// does not do it. Creating the organization itself (sign-up) is not covered
-// either: use the Chainguard Console or `chainctl develop init`.
+// Creating the organization itself (sign-up) is not covered: use the
+// Chainguard Console or `chainctl develop init`.
 //
 // All of these need a token for the platform API (PlatformTokenSource), and
-// steps 2 and 3 need the owner role in the organization.
+// steps 2 to 4 need the owner role in the organization. Step 3 also needs
+// you to own the GitHub account.
 
 // TermsDocument is a legal document an organization accepts.
 type TermsDocument struct {
@@ -49,6 +59,21 @@ type TermsDocument struct {
 // use Workspaces: the Secured Platform Terms and the Master Service and License
 // Agreement. (Source: chainguard.dev/sdk, proto/chainguard/platform/iam/terms.)
 var WorkspacesTerms = []string{"secure-platform-terms.v1", "msla.v1"}
+
+// EnableTerms are the documents an organization accepts when Workspaces is
+// turned on for it the way `chainctl develop init` does: the Workspaces terms,
+// the Code Analysis Terms (the same switch turns on Chainguard Checks), and
+// the Terms of Service and Data Privacy Agreement that linking a GitHub
+// account requires.
+var EnableTerms = []string{"secure-platform-terms.v1", "msla.v1", "code-analysis-terms.v1", "guardener-tos.v1", "sfdpa.v1"}
+
+// GitHubAppInstallURL is where the Chainguard GitHub App is installed on a
+// GitHub organization or user. Linking that account fails until it is.
+const GitHubAppInstallURL = "https://github.com/apps/chainguard/installations/new"
+
+// DefaultGitHubOAuthPort is the loopback port the GitHub authorization
+// redirects to (the one chainctl uses). Another free port works too.
+const DefaultGitHubOAuthPort = 8989
 
 var knownTerms = map[string]TermsDocument{
 	"secure-platform-terms.v1": {ID: "secure-platform-terms.v1", Label: "Secured Platform Terms", URL: "https://www.chainguard.dev/legal/secure-platform-terms"},
@@ -74,9 +99,27 @@ type PlatformError struct {
 	HTTPStatus int
 	Code       int
 	Message    string
+	// Reason is the machine-readable reason, when the service gives one
+	// (for example "GUARDENER_GITHUB_APP_NOT_INSTALLED").
+	Reason string
 	// MissingTerms is set when the call was refused because the organization
 	// has not accepted these documents.
 	MissingTerms []TermsDocument
+}
+
+// GitHubLinkRequired: the organization has to link a GitHub account first.
+func (e *PlatformError) GitHubLinkRequired() bool {
+	return e.Reason == "GUARDENER_GITHUB_LINK_REQUIRED" || strings.Contains(e.Message, "must link a GitHub organization")
+}
+
+// GitHubAppNotInstalled: the Chainguard GitHub App is not installed on the GitHub account.
+func (e *PlatformError) GitHubAppNotInstalled() bool {
+	return strings.HasSuffix(e.Reason, "GITHUB_APP_NOT_INSTALLED") || strings.Contains(e.Message, "must be installed on the GitHub")
+}
+
+// GitHubAlreadyLinked: the GitHub account is linked to another Chainguard organization.
+func (e *PlatformError) GitHubAlreadyLinked() bool {
+	return e.Reason == "GUARDENER_GITHUB_ALREADY_LINKED" || strings.Contains(e.Message, "already linked to a different")
 }
 
 func (e *PlatformError) Error() string {
@@ -146,10 +189,14 @@ func parsePlatformError(status int, data []byte) *PlatformError {
 	// A refusal for unaccepted terms carries a detail listing the missing documents.
 	for _, raw := range st.Details {
 		var d struct {
+			Reason  string                            `json:"reason"`
 			Missing []struct{ ID, Label, URL string } `json:"missing"`
 		}
 		if json.Unmarshal(raw, &d) != nil {
 			continue
+		}
+		if d.Reason != "" && e.Reason == "" {
+			e.Reason = d.Reason
 		}
 		for _, m := range d.Missing {
 			doc := TermsDocumentInfo(m.ID)
@@ -303,4 +350,176 @@ func WorkspacesEntitlement(ctx context.Context, ts TokenSource, org string) (Ent
 		}
 	}
 	return e, nil
+}
+
+// LinkedGitHub is a GitHub account linked to a Chainguard organization.
+type LinkedGitHub struct {
+	// Organization is the GitHub login: an organization, or a user.
+	Organization string
+}
+
+// LinkedGitHubOrganizations returns the GitHub accounts linked to the organization.
+func LinkedGitHubOrganizations(ctx context.Context, ts TokenSource, org string) ([]LinkedGitHub, error) {
+	p, err := orgPath(org)
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Organizations []struct {
+			Organization string `json:"organization"`
+		} `json:"organizations"`
+	}
+	if err := platformCall(ctx, ts, http.MethodGet, "/guardener/v1alpha1/githubAssociations/"+p, nil, &out); err != nil {
+		return nil, fmt.Errorf("listing linked GitHub accounts: %w", err)
+	}
+	linked := make([]LinkedGitHub, 0, len(out.Organizations))
+	for _, o := range out.Organizations {
+		linked = append(linked, LinkedGitHub{Organization: o.Organization})
+	}
+	return linked, nil
+}
+
+// GitHubOAuthStart is what the service hands out to start a GitHub
+// authorization: the Chainguard GitHub App's OAuth client ID, and a state
+// value the service signed and checks again when the account is linked.
+type GitHubOAuthStart struct{ ClientID, State string }
+
+// BeginGitHubOAuth starts a GitHub authorization.
+func BeginGitHubOAuth(ctx context.Context, ts TokenSource) (GitHubOAuthStart, error) {
+	var out struct {
+		ClientID string `json:"clientId"`
+		State    string `json:"state"`
+	}
+	if err := platformCall(ctx, ts, http.MethodGet, "/guardener/v1alpha1/githubAssociations:begin", nil, &out); err != nil {
+		return GitHubOAuthStart{}, fmt.Errorf("starting the GitHub authorization: %w", err)
+	}
+	if out.ClientID == "" || out.State == "" {
+		return GitHubOAuthStart{}, errors.New("starting the GitHub authorization: the service returned no client ID or state")
+	}
+	return GitHubOAuthStart{ClientID: out.ClientID, State: out.State}, nil
+}
+
+// GitHubAuthorization is the result of AuthorizeGitHub. It holds no GitHub
+// token: the service exchanges the code itself when the account is linked.
+type GitHubAuthorization struct{ Code, RedirectURI, Verifier, State string }
+
+// GitHubAuthorizeOptions configures AuthorizeGitHub.
+type GitHubAuthorizeOptions struct {
+	// Port is the loopback port to receive GitHub's redirect on (default DefaultGitHubOAuthPort).
+	Port int
+	// NoBrowser prints the URL instead of opening a browser.
+	NoBrowser bool
+	// Out receives the instructions (default os.Stderr).
+	Out io.Writer
+}
+
+// AuthorizeGitHub sends the person to GitHub to authorize the Chainguard
+// GitHub App and waits (until ctx is done) for GitHub's redirect to a loopback
+// port. It is the flow chainctl uses (chainguard.dev/sdk/githubflow): PKCE
+// with S256, the account picker forced, and the state checked on return.
+func AuthorizeGitHub(ctx context.Context, start GitHubOAuthStart, o GitHubAuthorizeOptions) (GitHubAuthorization, error) {
+	port := o.Port
+	if port == 0 {
+		port = DefaultGitHubOAuthPort
+	}
+	out := o.Out
+	if out == nil {
+		out = os.Stderr
+	}
+	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return GitHubAuthorization{}, fmt.Errorf("listening on loopback port %d for GitHub's redirect (choose another port if it is taken): %w", port, err)
+	}
+	defer ln.Close()
+	redirect := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return GitHubAuthorization{}, err
+	}
+	verifier := base64.RawURLEncoding.EncodeToString(raw)
+	sum := sha256.Sum256([]byte(verifier))
+	q := url.Values{
+		"client_id": {start.ClientID}, "redirect_uri": {redirect}, "response_type": {"code"}, "state": {start.State},
+		"code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"},
+		"prompt": {"select_account"}, "allow_signup": {"false"},
+	}
+	authURL := "https://github.com/login/oauth/authorize?" + q.Encode()
+
+	type result struct {
+		code string
+		err  error
+	}
+	got := make(chan result, 1)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		v := r.URL.Query()
+		var res result
+		switch {
+		case v.Get("error") != "":
+			http.Error(w, "Authorization was denied. You can close this window.", http.StatusBadRequest)
+			res.err = fmt.Errorf("GitHub refused the authorization: %s: %s", v.Get("error"), v.Get("error_description"))
+		case v.Get("state") != start.State:
+			http.Error(w, "Authorization state mismatch. You can close this window.", http.StatusBadRequest)
+			res.err = errors.New("GitHub's redirect carried the wrong state")
+		case v.Get("code") == "":
+			http.Error(w, "Missing authorization code. You can close this window.", http.StatusBadRequest)
+			res.err = errors.New("GitHub's redirect carried no authorization code")
+		default:
+			fmt.Fprintln(w, "Authorization complete. You can close this window and return to the terminal.")
+			res.code = v.Get("code")
+		}
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		select {
+		case got <- res:
+		default:
+		}
+	})
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = srv.Serve(ln) }()
+	defer func() {
+		sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(sctx) // lets the browser finish loading the result page
+	}()
+
+	if o.NoBrowser || OpenBrowser(authURL) != nil {
+		fmt.Fprintf(out, "Open this URL in a browser to authorize with GitHub:\n  %s\n", authURL)
+	} else {
+		fmt.Fprintf(out, "Opened a browser to authorize with GitHub. If it didn't open, visit:\n  %s\n", authURL)
+	}
+	select {
+	case <-ctx.Done():
+		return GitHubAuthorization{}, fmt.Errorf("waiting for the GitHub authorization: %w", ctx.Err())
+	case res := <-got:
+		if res.err != nil {
+			return GitHubAuthorization{}, res.err
+		}
+		return GitHubAuthorization{Code: res.code, RedirectURI: redirect, Verifier: verifier, State: start.State}, nil
+	}
+}
+
+// LinkGitHubOrganization links a GitHub account to the Chainguard
+// organization, using an authorization from AuthorizeGitHub. githubLogin is
+// the account to link, an organization or a user; empty means the GitHub user
+// who authorized. The Chainguard GitHub App must be installed on the account
+// (otherwise the *PlatformError reports GitHubAppNotInstalled), and you must
+// own it. An account can be linked to one Chainguard organization at a time.
+func LinkGitHubOrganization(ctx context.Context, ts TokenSource, org, githubLogin string, a GitHubAuthorization) (LinkedGitHub, error) {
+	p, err := orgPath(org)
+	if err != nil {
+		return LinkedGitHub{}, err
+	}
+	body := map[string]any{"code": a.Code, "redirectUri": a.RedirectURI, "codeVerifier": a.Verifier, "state": a.State}
+	if githubLogin != "" {
+		body["organization"] = githubLogin
+	}
+	var out struct {
+		Organization string `json:"organization"`
+	}
+	if err := platformCall(ctx, ts, http.MethodPost, "/guardener/v1alpha1/githubAssociations/"+p+":link", body, &out); err != nil {
+		return LinkedGitHub{}, fmt.Errorf("linking the GitHub account: %w", err)
+	}
+	return LinkedGitHub{Organization: out.Organization}, nil
 }

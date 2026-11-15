@@ -16,7 +16,7 @@ import sys
 from datetime import datetime
 
 USAGE = ("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | "
-         "enable [--accept-terms] [ORG] | ls | rm SANDBOX_ID")
+         "enable [--accept-terms] [--github ACCOUNT] [--port N] [ORG] | ls | rm SANDBOX_ID")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,6 +63,10 @@ def _print_status(st) -> None:
     print(f"organization: {st.organization}\nplan:         {st.plan}\nworkspaces:   {'on' if st.enabled else 'off'}")
     if st.max_sandboxes or st.max_sandboxes_per_user:
         print(f"sandboxes:    up to {st.max_sandboxes_per_user} per user, {st.max_sandboxes} in the organization")
+    if st.github_accounts:
+        print("github:       linked to", ", ".join(st.github_accounts))
+    elif not st.enabled:
+        print("github:       no account linked yet")
     if not st.missing_terms:
         print("terms:        accepted")
     else:
@@ -72,12 +76,24 @@ def _print_status(st) -> None:
 
 
 def _setup_cmd(cmd: str, rest: list[str]) -> int:
-    """status [ORG] | enable [--accept-terms] [ORG]"""
-    from chainguard_sandbox import TermsNotAcceptedError, enable_workspaces, workspaces_status
+    """status [ORG] | enable [--accept-terms] [--github ACCOUNT] [--port N] [ORG]"""
+    import webbrowser
 
-    accept = any(a in ("--accept-terms", "--yes") for a in rest)
-    orgs = [a for a in rest if a not in ("--accept-terms", "--yes")]
-    if len(orgs) > 1 or any(a.startswith("-") for a in orgs) or (accept and cmd == "status"):
+    from chainguard_sandbox import GitHubAppNotInstalledError, TermsNotAcceptedError, enable_workspaces, workspaces_status
+    from chainguard_sandbox.workspaces.setup import GITHUB_APP_INSTALL_URL
+
+    accept, github, port, orgs = False, "", 0, []
+    it = iter(rest)
+    for a in it:
+        if a in ("--accept-terms", "--yes"):
+            accept = True
+        elif a == "--github":
+            github = next(it, "")
+        elif a == "--port":
+            port = int(next(it, "0") or 0)
+        else:
+            orgs.append(a)
+    if len(orgs) > 1 or any(a.startswith("-") for a in orgs) or (cmd == "status" and (accept or github or port)):
         print(USAGE, file=sys.stderr)
         return 2
     org = orgs[0] if orgs else None
@@ -102,11 +118,27 @@ def _setup_cmd(cmd: str, rest: list[str]) -> int:
             print("chainguard-sandbox: not accepted; nothing was changed", file=sys.stderr)
             return 1
         accept = True
-    try:
-        st = enable_workspaces(accept_terms=accept, instance=st.organization)
-    except TermsNotAcceptedError as e:
-        print(f"chainguard-sandbox: {e}\nRe-run with --accept-terms once you have read them", file=sys.stderr)
-        return 1
+    if not st.github_accounts:
+        print("\nNext, a GitHub account is linked to the organization: Chainguard requires one before it turns\n"
+              "Workspaces on. Your browser opens GitHub, where you choose the account (your own user, unless you\n"
+              f"passed --github ORG). The Chainguard GitHub App has to be installed on that account:\n  {GITHUB_APP_INSTALL_URL}")
+    for attempt in range(1, 4):
+        try:
+            st = enable_workspaces(accept_terms=accept, instance=st.organization, github_account=github, github_port=port)
+            break
+        except TermsNotAcceptedError as e:
+            print(f"chainguard-sandbox: {e}\nRe-run with --accept-terms once you have read them", file=sys.stderr)
+            return 1
+        except GitHubAppNotInstalledError as e:  # install it, then authorize again
+            if attempt == 3:
+                raise
+            print("\nThe Chainguard GitHub App is not installed on that GitHub account yet.\n"
+                  f"Install it here (opening it in your browser), then come back:\n  {e.install_url}")
+            try:
+                webbrowser.open(e.install_url)
+            except Exception:  # noqa: BLE001 - the URL is printed above
+                pass
+            input("\nPress Enter once the app is installed, to authorize again: ")
     print()
     _print_status(st)
     print("\nWorkspaces is on. Create a sandbox with the SDK, or list them with: chainguard-sandbox ls")

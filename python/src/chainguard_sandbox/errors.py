@@ -94,6 +94,22 @@ class WorkspacesNotEnabledError(SandboxError):
     with ``enable_workspaces()`` or ``chainguard-sandbox enable``."""
 
 
+class GitHubLinkRequiredError(SandboxError):
+    """The organization has no GitHub account linked, which the service requires
+    before it turns Workspaces on, and enable_workspaces() was told not to open a
+    browser to link one."""
+
+
+class GitHubAppNotInstalledError(SandboxError):
+    """The Chainguard GitHub App is not installed on the GitHub account being
+    linked. Install it at ``install_url``, then call enable_workspaces() again."""
+
+    def __init__(self, install_url: str, detail: str = ""):
+        super().__init__(f"the Chainguard GitHub App is not installed on that GitHub account; install it at {install_url} "
+                         f"and try again{f' ({detail})' if detail else ''}")
+        self.install_url = install_url
+
+
 class TermsNotAcceptedError(SandboxError):
     """The organization has not accepted the legal documents Workspaces is
     offered under. ``missing`` lists them (``.id``, ``.label``, ``.url``);

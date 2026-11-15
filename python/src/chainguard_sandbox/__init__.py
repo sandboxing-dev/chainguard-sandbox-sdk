@@ -36,6 +36,8 @@ from chainguard_sandbox.errors import (
     CommandExitError,
     CommandResult,
     FileNotFoundError,
+    GitHubAppNotInstalledError,
+    GitHubLinkRequiredError,
     InvalidPathError,
     LimitReachedError,
     NotFoundError,
@@ -54,6 +56,6 @@ __all__ = [
     "InvalidPathError", "LimitReachedError", "NotFoundError", "OutcomeUnknownError", "ProcessInfo", "Sandbox",
     "SandboxBusyError", "SandboxError", "SandboxInfo", "SandboxNotFoundError", "TimeoutError", "WriteInfo",
     "environment_document", "Organization", "list_organizations",
-    "TermsDocument", "TermsNotAcceptedError", "WorkspacesNotEnabledError", "WorkspacesStatus",
+    "GitHubAppNotInstalledError", "GitHubLinkRequiredError", "TermsDocument", "TermsNotAcceptedError", "WorkspacesNotEnabledError", "WorkspacesStatus",
     "enable_workspaces", "workspaces_status",
 ]

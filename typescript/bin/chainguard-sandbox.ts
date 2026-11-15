@@ -11,7 +11,8 @@
 //   bun bin/chainguard-sandbox.ts ls                                    # your sandboxes
 //   bun bin/chainguard-sandbox.ts rm SANDBOX_ID                         # delete one
 import { FileLoginStore, browserLogin, browserLoginToken, defaultLoginFile, listOrganizations, logout, tokenClaims } from "../src/index";
-import { Sandbox, TermsNotAcceptedError, enableWorkspaces, workspacesStatus, type WorkspacesStatus } from "../src/sandbox/index";
+import { GitHubAppNotInstalledError, Sandbox, TermsNotAcceptedError, enableWorkspaces, workspacesStatus, type WorkspacesStatus } from "../src/sandbox/index";
+import { GITHUB_APP_INSTALL_URL, openBrowser } from "../src/index";
 
 /**
  * Ordered stdout/stderr writers. Bun's process.stdout.write can drop data still
@@ -25,7 +26,7 @@ const err = (b: Uint8Array | string) => void (errChain = errChain.then(() => Bun
 const println = (s: string) => out(s + "\n");
 
 function usage(): never {
-  console.error("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [ORG] | ls | rm SANDBOX_ID");
+  console.error("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [--github ACCOUNT] [--port N] [ORG] | ls | rm SANDBOX_ID");
   process.exit(2);
 }
 
@@ -56,6 +57,8 @@ async function loginCmd(cmd: string, args: string[]): Promise<void> {
 function printStatus(st: WorkspacesStatus) {
   println(`organization: ${st.organization}\nplan:         ${st.plan}\nworkspaces:   ${st.enabled ? "on" : "off"}`);
   if (st.maxSandboxes || st.maxSandboxesPerUser) println(`sandboxes:    up to ${st.maxSandboxesPerUser} per user, ${st.maxSandboxes} in the organization`);
+  if (st.githubAccounts.length) println(`github:       linked to ${st.githubAccounts.join(", ")}`);
+  else if (!st.enabled) println("github:       no account linked yet");
   if (st.missingTerms.length === 0) println("terms:        accepted");
   else {
     println("terms:        not accepted yet:");
@@ -63,16 +66,22 @@ function printStatus(st: WorkspacesStatus) {
   }
 }
 
-/** status [ORG] | enable [--accept-terms] [ORG] */
+/** status [ORG] | enable [--accept-terms] [--github ACCOUNT] [--port N] [ORG] */
 async function setupCmd(cmd: string, args: string[]): Promise<number | void> {
   let accept = false;
   let instance: string | undefined;
-  for (const a of args) {
+  let githubAccount: string | undefined;
+  let githubPort: number | undefined;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
     if (a === "--accept-terms" || a === "--yes") accept = true;
+    else if (a === "--github" && i + 1 < args.length) githubAccount = args[++i];
+    else if (a === "--port" && i + 1 < args.length) githubPort = Number(args[++i]);
     else if (a.startsWith("-") || instance) usage();
     else instance = a;
   }
-  if (accept && cmd === "status") usage();
+  if (cmd === "status" && (accept || githubAccount || githubPort)) usage();
+  if (githubPort !== undefined && !Number.isInteger(githubPort)) usage();
   let st = await workspacesStatus({ instance });
   if (cmd === "status") {
     printStatus(st);
@@ -99,12 +108,30 @@ async function setupCmd(cmd: string, args: string[]): Promise<number | void> {
     }
     accept = true;
   }
-  try {
-    st = await enableWorkspaces({ instance: st.organization, acceptTerms: accept });
-  } catch (e) {
-    if (!(e instanceof TermsNotAcceptedError)) throw e;
-    err(`chainguard-sandbox: ${e.message}\nRe-run with --accept-terms once you have read them\n`);
-    return 1;
+  if (st.githubAccounts.length === 0) {
+    println(
+      "\nNext, a GitHub account is linked to the organization: Chainguard requires one before it turns\n" +
+        "Workspaces on. Your browser opens GitHub, where you choose the account (your own user, unless you\n" +
+        `passed --github ORG). The Chainguard GitHub App has to be installed on that account:\n  ${GITHUB_APP_INSTALL_URL}`,
+    );
+  }
+  const organization = st.organization;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      st = await enableWorkspaces({ instance: organization, acceptTerms: accept, githubAccount, githubPort });
+      break;
+    } catch (e) {
+      if (e instanceof TermsNotAcceptedError) {
+        err(`chainguard-sandbox: ${e.message}\nRe-run with --accept-terms once you have read them\n`);
+        return 1;
+      }
+      // The app isn't on the account yet: install it, then authorize again.
+      if (!(e instanceof GitHubAppNotInstalledError) || attempt >= 3) throw e;
+      println(`\nThe Chainguard GitHub App is not installed on that GitHub account yet.\nInstall it here (opening it in your browser), then come back:\n  ${e.installUrl}`);
+      await outChain;
+      await openBrowser(e.installUrl);
+      prompt("\nPress Enter once the app is installed, to authorize again:");
+    }
   }
   println("");
   printStatus(st);

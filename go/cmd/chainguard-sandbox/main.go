@@ -87,13 +87,22 @@ func main() {
 	}
 }
 
-// setupArgs reads [--accept-terms] [ORG].
+// setupArgs reads [--accept-terms] [--github ACCOUNT] [--port N] [ORG].
 func setupArgs(args []string) *sandbox.SetupOptions {
 	o := &sandbox.SetupOptions{}
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		switch {
 		case a == "--accept-terms" || a == "--yes":
 			o.AcceptTerms = true
+		case a == "--github" && i+1 < len(args):
+			i++
+			o.GitHubAccount = args[i]
+		case a == "--port" && i+1 < len(args):
+			i++
+			if _, err := fmt.Sscan(args[i], &o.GitHubPort); err != nil {
+				usage()
+			}
 		case strings.HasPrefix(a, "-") || o.Instance != "":
 			usage()
 		default:
@@ -112,6 +121,11 @@ func printStatus(st *sandbox.WorkspacesStatus) {
 	}
 	if st.MaxSandboxes > 0 || st.MaxSandboxesPerUser > 0 {
 		fmt.Printf("sandboxes:    up to %d per user, %d in the organization\n", st.MaxSandboxesPerUser, st.MaxSandboxes)
+	}
+	if len(st.GitHubAccounts) > 0 {
+		fmt.Println("github:       linked to", strings.Join(st.GitHubAccounts, ", "))
+	} else if !st.Enabled {
+		fmt.Println("github:       no account linked yet")
 	}
 	if len(st.MissingTerms) == 0 {
 		fmt.Println("terms:        accepted")
@@ -163,13 +177,34 @@ func enable(ctx context.Context, args []string) {
 		}
 		o.AcceptTerms = true
 	}
-	st, err = sandbox.Enable(ctx, o)
-	var terms *sandbox.TermsNotAcceptedError
-	if errors.As(err, &terms) {
-		fail(fmt.Errorf("%w\nRe-run with --accept-terms once you have read them", err))
+	if len(st.GitHubAccounts) == 0 {
+		fmt.Println("\nNext, a GitHub account is linked to the organization: Chainguard requires one before it turns")
+		fmt.Println("Workspaces on. Your browser opens GitHub, where you choose the account (your own user, unless you")
+		fmt.Println("passed --github ORG). The Chainguard GitHub App has to be installed on that account:")
+		fmt.Println(" ", workspaces.GitHubAppInstallURL)
 	}
-	if err != nil {
-		fail(err)
+	for attempt := 1; ; attempt++ {
+		st, err = sandbox.Enable(ctx, o)
+		var terms *sandbox.TermsNotAcceptedError
+		if errors.As(err, &terms) {
+			fail(fmt.Errorf("%w\nRe-run with --accept-terms once you have read them", err))
+		}
+		// The app isn't on the account yet: install it, then authorize again.
+		var app *sandbox.GitHubAppNotInstalledError
+		if errors.As(err, &app) && attempt < 3 {
+			fmt.Println("\nThe Chainguard GitHub App is not installed on that GitHub account yet.")
+			fmt.Println("Install it here (opening it in your browser), then come back:")
+			fmt.Println(" ", app.InstallURL)
+			_ = workspaces.OpenBrowser(app.InstallURL)
+			fmt.Print("\nPress Enter once the app is installed, to authorize again: ")
+			var line string
+			fmt.Scanln(&line)
+			continue
+		}
+		if err != nil {
+			fail(err)
+		}
+		break
 	}
 	fmt.Println()
 	printStatus(st)
@@ -216,7 +251,7 @@ func whoami(ctx context.Context) {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [ORG] | ls | rm ID")
+	fmt.Fprintln(os.Stderr, "usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [--github ACCOUNT] [--port N] [ORG] | ls | rm ID")
 	os.Exit(2)
 }
 

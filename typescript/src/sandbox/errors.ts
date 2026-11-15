@@ -91,6 +91,25 @@ export class OutcomeUnknownError extends SandboxError {
 export class WorkspacesNotEnabledError extends SandboxError {}
 
 /**
+ * The organization has no GitHub account linked, which the service requires before it turns
+ * Workspaces on, and enableWorkspaces was told not to open a browser to link one.
+ */
+export class GitHubLinkRequiredError extends SandboxError {}
+
+/**
+ * The Chainguard GitHub App is not installed on the GitHub account being linked. Install it at
+ * `installUrl`, then call enableWorkspaces again.
+ */
+export class GitHubAppNotInstalledError extends SandboxError {
+  constructor(
+    readonly installUrl: string,
+    detail = "",
+  ) {
+    super(`the Chainguard GitHub App is not installed on that GitHub account; install it at ${installUrl} and try again${detail ? ` (${detail})` : ""}`);
+  }
+}
+
+/**
  * The organization has not accepted the legal documents Workspaces is offered under. `missing`
  * lists them; enableWorkspaces({ acceptTerms: true }) accepts them.
  */

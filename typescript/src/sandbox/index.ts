@@ -49,7 +49,7 @@ import { timings } from "./timings";
 import { extractTarGz } from "./untar";
 
 export * from "./errors";
-export { enableWorkspaces, workspacesStatus, type SetupOpts, type TermsDocument, type WorkspacesStatus } from "./setup";
+export { enableWorkspaces, workspacesStatus, type EnableOpts, type SetupOpts, type TermsDocument, type WorkspacesStatus } from "./setup";
 export { listOrganizations, type Organization } from "../orgs";
 
 /** The toolchain a sandbox gets by default: a shell, core tools, git, curl, jq, Python and Node.js (Chainguard package names). */
