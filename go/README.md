@@ -9,8 +9,25 @@ same workflow as Vercel Sandbox, E2B or Modal.
 
 ## Install
 
+Into a new module:
+
 ```sh
+mkdir my-app && cd my-app
+go mod init example.com/my-app
 go get github.com/sandboxing-dev/chainguard-sandbox-sdk/go@latest
+```
+
+In a module you already have, run only the `go get` line. The CLI runs with
+`go run github.com/sandboxing-dev/chainguard-sandbox-sdk/go/cmd/chainguard-sandbox@latest` (`login`, `status`,
+`enable`, `orgs`, `ls`, `rm`).
+
+From a clone of this repository, everything runs from this directory (`go/`) with shorter commands:
+
+```sh
+git clone https://github.com/sandboxing-dev/chainguard-sandbox-sdk
+cd chainguard-sandbox-sdk/go
+go run ./cmd/chainguard-sandbox login     # also: status, enable, orgs, ls, rm
+go run ./examples/quickstart              # create a sandbox, run a command, use files
 ```
 
 Go 1.23 or newer.

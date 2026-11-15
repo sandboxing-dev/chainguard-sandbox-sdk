@@ -1,5 +1,10 @@
 // Quickstart: create a sandbox, run a command, write and read a file, delete it.
 //
+// Before anything else: your Chainguard organization must exist and have
+// Workspaces turned on (one time, by an owner: `chainguard-sandbox enable`).
+// Otherwise Create fails with "PermissionDenied: this organization is not
+// entitled to Chainguard Workspaces". See the Quickstart in the docs.
+//
 // Before you run it:
 //
 //  0. Get the SDK and install its dependencies:
@@ -34,6 +39,7 @@
 //  3. Run it, from chainguard-sandbox-sdk/typescript:
 //
 //        bun examples/quickstart.ts
+// --8<-- [start:program]
 import { Sandbox } from "chainguard-sandbox-sdk";
 
 {
@@ -53,3 +59,4 @@ import { Sandbox } from "chainguard-sandbox-sdk";
 
 // connect-node keeps its HTTP/2 session open, so exit explicitly, after the block has disposed the sandbox.
 process.exit(0);
+// --8<-- [end:program]

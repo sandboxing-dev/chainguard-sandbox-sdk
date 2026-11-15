@@ -87,3 +87,19 @@ class OutcomeUnknownError(SandboxError):
     def __init__(self, message: str, cause: BaseException | None = None):
         super().__init__(message)
         self.cause = cause
+
+
+class WorkspacesNotEnabledError(SandboxError):
+    """Workspaces is not turned on for the organization. An owner can turn it on
+    with ``enable_workspaces()`` or ``chainguard-sandbox enable``."""
+
+
+class TermsNotAcceptedError(SandboxError):
+    """The organization has not accepted the legal documents Workspaces is
+    offered under. ``missing`` lists them (``.id``, ``.label``, ``.url``);
+    ``enable_workspaces(accept_terms=True)`` accepts them."""
+
+    def __init__(self, missing: list):
+        names = "; ".join(f"{d.label or d.id} ({d.url})" for d in missing)
+        super().__init__(f"the organization has not accepted the terms Workspaces is offered under: {names}")
+        self.missing = missing

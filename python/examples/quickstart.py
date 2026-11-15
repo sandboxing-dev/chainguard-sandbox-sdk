@@ -1,5 +1,10 @@
 """Quickstart: create a sandbox, run a command, write and read a file, delete it.
 
+Before anything else: your Chainguard organization must exist and have
+Workspaces turned on (one time, by an owner: `chainguard-sandbox enable`).
+Otherwise create fails with "PERMISSION_DENIED: this organization is not
+entitled to Chainguard Workspaces". See the Quickstart in the docs.
+
 Before you run it:
 
 0. Install the SDK in your project, from GitHub or from a local checkout:
@@ -36,6 +41,7 @@ Before you run it:
 
        uv run python examples/quickstart.py
 """
+# --8<-- [start:program]
 from chainguard_sandbox import Sandbox
 
 # --8<-- [start:quickstart]
@@ -49,3 +55,4 @@ with Sandbox.create(
     sbx.files.write("notes/hello.txt", "hi")
     print(sbx.files.read("notes/hello.txt"))
 # --8<-- [end:quickstart]
+# --8<-- [end:program]

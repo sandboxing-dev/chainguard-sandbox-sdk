@@ -6,10 +6,12 @@
 //   bun bin/chainguard-sandbox.ts logout
 //   bun bin/chainguard-sandbox.ts orgs                                  # your organization IDs
 //   export CHAINCTL_SANDBOX_INSTANCE=XXXXXX                   # only needed with several
+//   bun bin/chainguard-sandbox.ts status                                # is Workspaces turned on for the organization?
+//   bun bin/chainguard-sandbox.ts enable                                # turn it on (asks before accepting the terms)
 //   bun bin/chainguard-sandbox.ts ls                                    # your sandboxes
 //   bun bin/chainguard-sandbox.ts rm SANDBOX_ID                         # delete one
 import { FileLoginStore, browserLogin, browserLoginToken, defaultLoginFile, listOrganizations, logout, tokenClaims } from "../src/index";
-import { Sandbox } from "../src/sandbox/index";
+import { Sandbox, TermsNotAcceptedError, enableWorkspaces, workspacesStatus, type WorkspacesStatus } from "../src/sandbox/index";
 
 /**
  * Ordered stdout/stderr writers. Bun's process.stdout.write can drop data still
@@ -23,7 +25,7 @@ const err = (b: Uint8Array | string) => void (errChain = errChain.then(() => Bun
 const println = (s: string) => out(s + "\n");
 
 function usage(): never {
-  console.error("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | ls | rm SANDBOX_ID");
+  console.error("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [ORG] | ls | rm SANDBOX_ID");
   process.exit(2);
 }
 
@@ -51,6 +53,64 @@ async function loginCmd(cmd: string, args: string[]): Promise<void> {
   println(`subject:  ${c.sub}\nissuer:   ${c.iss}\naudience: ${JSON.stringify(aud)}\nexpires:  ${new Date((c.exp ?? 0) * 1000).toLocaleString()}`);
 }
 
+function printStatus(st: WorkspacesStatus) {
+  println(`organization: ${st.organization}\nplan:         ${st.plan}\nworkspaces:   ${st.enabled ? "on" : "off"}`);
+  if (st.maxSandboxes || st.maxSandboxesPerUser) println(`sandboxes:    up to ${st.maxSandboxesPerUser} per user, ${st.maxSandboxes} in the organization`);
+  if (st.missingTerms.length === 0) println("terms:        accepted");
+  else {
+    println("terms:        not accepted yet:");
+    for (const d of st.missingTerms) println(`  - ${d.label}: ${d.url}`);
+  }
+}
+
+/** status [ORG] | enable [--accept-terms] [ORG] */
+async function setupCmd(cmd: string, args: string[]): Promise<number | void> {
+  let accept = false;
+  let instance: string | undefined;
+  for (const a of args) {
+    if (a === "--accept-terms" || a === "--yes") accept = true;
+    else if (a.startsWith("-") || instance) usage();
+    else instance = a;
+  }
+  if (accept && cmd === "status") usage();
+  let st = await workspacesStatus({ instance });
+  if (cmd === "status") {
+    printStatus(st);
+    if (!st.ready) {
+      println("\nSandboxes can't be created yet. An organization owner can turn Workspaces on with: chainguard-sandbox enable");
+      return 1;
+    }
+    return;
+  }
+  if (st.ready) {
+    printStatus(st);
+    println("\nWorkspaces is already on.");
+    return;
+  }
+  println(`Turning on Chainguard Workspaces (and Checks) for organization ${st.organization}.`);
+  if (st.missingTerms.length && !accept) {
+    println("\nThe organization has to accept these documents first:");
+    for (const d of st.missingTerms) println(`  - ${d.label}: ${d.url}`);
+    await outChain;
+    const answer = prompt('\nDo you accept them on behalf of the organization? Type "yes" to accept:');
+    if ((answer ?? "").trim().toLowerCase() !== "yes") {
+      err("chainguard-sandbox: not accepted; nothing was changed\n");
+      return 1;
+    }
+    accept = true;
+  }
+  try {
+    st = await enableWorkspaces({ instance: st.organization, acceptTerms: accept });
+  } catch (e) {
+    if (!(e instanceof TermsNotAcceptedError)) throw e;
+    err(`chainguard-sandbox: ${e.message}\nRe-run with --accept-terms once you have read them\n`);
+    return 1;
+  }
+  println("");
+  printStatus(st);
+  println("\nWorkspaces is on. Create a sandbox with the SDK, or list them with: chainguard-sandbox ls");
+}
+
 async function main(): Promise<number | void> {
   const [cmd, ...args] = process.argv.slice(2);
   if (!cmd) usage();
@@ -65,6 +125,9 @@ async function main(): Promise<number | void> {
       table([["ID", "NAME"], ...orgs.map((o) => [o.id, o.name])]);
       return;
     }
+    case "status":
+    case "enable":
+      return setupCmd(cmd, args);
     case "ls": {
       if (args.length) usage();
       const rows = (await Sandbox.list()).map((s) => [s.sandboxId, s.displayName, s.state, s.region, s.createdAt?.toLocaleString() ?? "-"]);

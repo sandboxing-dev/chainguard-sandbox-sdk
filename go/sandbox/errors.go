@@ -17,6 +17,7 @@ import (
 //	var nf *sandbox.NotFoundError        // file, directory, command or sandbox missing
 //	errors.Is(err, sandbox.ErrBusy)      // the sandbox is attached elsewhere
 //	var to *sandbox.TimeoutError         // a command or start deadline passed
+//	errors.Is(err, sandbox.ErrNotEnabled) // Workspaces isn't turned on for the organization (see Enable)
 
 // ErrBusy: the sandbox is held by another controller, typically an
 // interactive shell attached with chainctl or the attach API. Commands can't
@@ -98,6 +99,8 @@ func wrapErr(err error) error {
 		return ErrOutcomeUnknown
 	case workspaces.IsGuestHeld(err):
 		return fmt.Errorf("%w (%v)", ErrBusy, err)
+	case notEnabled(err):
+		return fmt.Errorf("%w: %w", ErrNotEnabled, err)
 	case status.Code(err) == codes.ResourceExhausted:
 		return fmt.Errorf("%w (%s)", ErrLimitReached, status.Convert(err).Message())
 	}

@@ -30,16 +30,20 @@ import (
 type fakePlane struct {
 	sessionv1.UnimplementedSessionsServer
 
-	mu       sync.Mutex
-	deleted  []string
-	attaches int
-	get      func(ctx context.Context, name string) (*sessionv1.Session, error)
-	exec     func(r *sessionv1.ExecRequest, s grpc.ServerStreamingServer[sessionv1.ExecResponse]) error
+	mu        sync.Mutex
+	deleted   []string
+	attaches  int
+	createErr error
+	get       func(ctx context.Context, name string) (*sessionv1.Session, error)
+	exec      func(r *sessionv1.ExecRequest, s grpc.ServerStreamingServer[sessionv1.ExecResponse]) error
 }
 
 const fakeName = "instances/org1/sessions/0123456789abcdef"
 
 func (f *fakePlane) CreateSession(context.Context, *sessionv1.CreateSessionRequest) (*sessionv1.Session, error) {
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
 	return &sessionv1.Session{Name: fakeName, ShortId: "01234567"}, nil
 }
 

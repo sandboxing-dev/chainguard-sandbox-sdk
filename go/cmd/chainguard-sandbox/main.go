@@ -14,9 +14,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"text/tabwriter"
 	"time"
@@ -53,6 +55,10 @@ func main() {
 			fmt.Fprintf(tw, "%s\t%s\n", o.ID, o.Name)
 		}
 		tw.Flush()
+	case "status":
+		workspacesStatus(ctx, args)
+	case "enable":
+		enable(ctx, args)
 	case "ls":
 		infos, err := sandbox.List(ctx, nil)
 		if err != nil {
@@ -79,6 +85,95 @@ func main() {
 	default:
 		usage()
 	}
+}
+
+// setupArgs reads [--accept-terms] [ORG].
+func setupArgs(args []string) *sandbox.SetupOptions {
+	o := &sandbox.SetupOptions{}
+	for _, a := range args {
+		switch {
+		case a == "--accept-terms" || a == "--yes":
+			o.AcceptTerms = true
+		case strings.HasPrefix(a, "-") || o.Instance != "":
+			usage()
+		default:
+			o.Instance = a
+		}
+	}
+	return o
+}
+
+func printStatus(st *sandbox.WorkspacesStatus) {
+	fmt.Printf("organization: %s\nplan:         %s\n", st.Organization, st.Plan)
+	if st.Enabled {
+		fmt.Println("workspaces:   on")
+	} else {
+		fmt.Println("workspaces:   off")
+	}
+	if st.MaxSandboxes > 0 || st.MaxSandboxesPerUser > 0 {
+		fmt.Printf("sandboxes:    up to %d per user, %d in the organization\n", st.MaxSandboxesPerUser, st.MaxSandboxes)
+	}
+	if len(st.MissingTerms) == 0 {
+		fmt.Println("terms:        accepted")
+	} else {
+		fmt.Println("terms:        not accepted yet:")
+		for _, d := range st.MissingTerms {
+			fmt.Printf("  - %s: %s\n", d.Label, d.URL)
+		}
+	}
+}
+
+// workspacesStatus prints whether Workspaces is turned on for the organization.
+func workspacesStatus(ctx context.Context, args []string) {
+	st, err := sandbox.Status(ctx, setupArgs(args))
+	if err != nil {
+		fail(err)
+	}
+	printStatus(st)
+	if !st.Ready() {
+		fmt.Println("\nSandboxes can't be created yet. An organization owner can turn Workspaces on with: chainguard-sandbox enable")
+		os.Exit(1)
+	}
+}
+
+// enable turns Workspaces on: it shows the terms the organization still has to
+// accept and asks before accepting them (or takes --accept-terms as the answer).
+func enable(ctx context.Context, args []string) {
+	o := setupArgs(args)
+	st, err := sandbox.Status(ctx, o)
+	if err != nil {
+		fail(err)
+	}
+	if st.Ready() {
+		printStatus(st)
+		fmt.Println("\nWorkspaces is already on.")
+		return
+	}
+	fmt.Printf("Turning on Chainguard Workspaces (and Checks) for organization %s.\n", st.Organization)
+	if len(st.MissingTerms) > 0 && !o.AcceptTerms {
+		fmt.Println("\nThe organization has to accept these documents first:")
+		for _, d := range st.MissingTerms {
+			fmt.Printf("  - %s: %s\n", d.Label, d.URL)
+		}
+		fmt.Print("\nDo you accept them on behalf of the organization? Type \"yes\" to accept: ")
+		var answer string
+		fmt.Scanln(&answer)
+		if strings.ToLower(strings.TrimSpace(answer)) != "yes" {
+			fail(errors.New("not accepted; nothing was changed"))
+		}
+		o.AcceptTerms = true
+	}
+	st, err = sandbox.Enable(ctx, o)
+	var terms *sandbox.TermsNotAcceptedError
+	if errors.As(err, &terms) {
+		fail(fmt.Errorf("%w\nRe-run with --accept-terms once you have read them", err))
+	}
+	if err != nil {
+		fail(err)
+	}
+	fmt.Println()
+	printStatus(st)
+	fmt.Println("\nWorkspaces is on. Create a sandbox with the SDK, or list them with: chainguard-sandbox ls")
 }
 
 // login runs the browser login and saves it (replacing any saved login).
@@ -121,7 +216,7 @@ func whoami(ctx context.Context) {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | ls | rm ID")
+	fmt.Fprintln(os.Stderr, "usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | enable [--accept-terms] [ORG] | ls | rm ID")
 	os.Exit(2)
 }
 

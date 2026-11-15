@@ -83,3 +83,19 @@ export class OutcomeUnknownError extends SandboxError {
     super(message, cause !== undefined ? { cause } : undefined);
   }
 }
+
+/**
+ * Workspaces is not turned on for the organization. An owner can turn it on with
+ * enableWorkspaces() or `chainguard-sandbox enable`.
+ */
+export class WorkspacesNotEnabledError extends SandboxError {}
+
+/**
+ * The organization has not accepted the legal documents Workspaces is offered under. `missing`
+ * lists them; enableWorkspaces({ acceptTerms: true }) accepts them.
+ */
+export class TermsNotAcceptedError extends SandboxError {
+  constructor(readonly missing: { id: string; label: string; url: string }[]) {
+    super(`the organization has not accepted the terms Workspaces is offered under: ${missing.map((d) => `${d.label || d.id} (${d.url})`).join("; ")}`);
+  }
+}

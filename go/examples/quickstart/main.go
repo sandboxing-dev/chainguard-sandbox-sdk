@@ -1,5 +1,10 @@
 // Quickstart: create a sandbox, run a command, write and read a file, delete it.
 //
+// Before anything else: your Chainguard organization must exist and have
+// Workspaces turned on (one time, by an owner: `chainguard-sandbox enable`).
+// Otherwise Create fails with "PermissionDenied: this organization is not
+// entitled to Chainguard Workspaces". See the Quickstart in the docs.
+//
 // Before you run it (from the go/ directory of this repository):
 //
 //  1. Log in once. It opens your browser; the login is saved and shared by
@@ -28,6 +33,8 @@
 //  3. Run it:
 //
 //     go run ./examples/quickstart
+
+// --8<-- [start:program]
 package main
 
 import (
@@ -75,3 +82,4 @@ func run(ctx context.Context) error {
 }
 
 // --8<-- [end:quickstart]
+// --8<-- [end:program]

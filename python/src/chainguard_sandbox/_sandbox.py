@@ -39,6 +39,7 @@ from chainguard_sandbox.errors import (
     SandboxError,
     SandboxNotFoundError,
     TimeoutError,
+    WorkspacesNotEnabledError,
 )
 from chainguard_sandbox.workspaces.sessions import repository_session, workspace_session
 
@@ -66,6 +67,10 @@ def _wrap(e: BaseException) -> BaseException:
     if is_guest_held(e):
         return SandboxBusyError(f"another client (an interactive shell) is attached to this sandbox; commands run once it detaches ({e.details()})")  # pyright: ignore[reportAttributeAccessIssue]
     if isinstance(e, grpc.RpcError):
+        if e.code() == grpc.StatusCode.PERMISSION_DENIED and "not entitled to Chainguard Workspaces" in (e.details() or ""):
+            return WorkspacesNotEnabledError(
+                "Workspaces is not turned on for this organization; an owner can turn it on with "
+                f"enable_workspaces() or `chainguard-sandbox enable` ({e.details()})")
         if e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
             return LimitReachedError(f"session limit reached; kill an existing sandbox first ({e.details()})")
         if e.code() == grpc.StatusCode.NOT_FOUND:

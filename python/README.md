@@ -13,10 +13,28 @@ an API shaped like E2B, Vercel Sandbox and Modal.
 
 ## Install
 
+Into a new project:
+
 ```sh
+mkdir my-app && cd my-app
+uv init
 uv add "chainguard-sandbox-sdk @ git+https://github.com/sandboxing-dev/chainguard-sandbox-sdk#subdirectory=python"
-# or, from a local checkout:
-uv add --editable ../chainguard-sandbox-sdk/python
+```
+
+In a project you already have, run only the `uv add` line in its directory (the one with `pyproject.toml`).
+To use a local clone of this repository instead, give `uv add --editable` the path from your project to the
+clone's `python` directory, for example `uv add --editable ../chainguard-sandbox-sdk/python` when the clone
+sits next to your project. The CLI is then `uv run chainguard-sandbox` (`login`, `status`, `enable`, `orgs`,
+`ls`, `rm`).
+
+From a clone of this repository, everything runs from this directory (`python/`) with no project of your
+own; `uv run` installs what it needs on first use:
+
+```sh
+git clone https://github.com/sandboxing-dev/chainguard-sandbox-sdk
+cd chainguard-sandbox-sdk/python
+uv run chainguard-sandbox login           # also: status, enable, orgs, ls, rm
+uv run python examples/quickstart.py      # create a sandbox, run a command, use files
 ```
 
 With pip: `pip install "git+https://github.com/sandboxing-dev/chainguard-sandbox-sdk#subdirectory=python"`.

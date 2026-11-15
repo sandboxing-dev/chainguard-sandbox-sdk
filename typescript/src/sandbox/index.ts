@@ -41,6 +41,7 @@ import {
   SandboxError,
   SandboxNotFoundError,
   TimeoutError,
+  WorkspacesNotEnabledError,
   type CommandResult,
 } from "./errors";
 import * as S from "./scripts";
@@ -48,6 +49,7 @@ import { timings } from "./timings";
 import { extractTarGz } from "./untar";
 
 export * from "./errors";
+export { enableWorkspaces, workspacesStatus, type SetupOpts, type TermsDocument, type WorkspacesStatus } from "./setup";
 export { listOrganizations, type Organization } from "../orgs";
 
 /** The toolchain a sandbox gets by default: a shell, core tools, git, curl, jq, Python and Node.js (Chainguard package names). */
@@ -78,6 +80,9 @@ function wrap(e: unknown): unknown {
   if (e instanceof LibOutcomeUnknown) return new OutcomeUnknownError(e.message, e.cause);
   if (isGuestHeld(e)) return new SandboxBusyError(`another client (an interactive shell) is attached to this sandbox; commands run once it detaches (${(e as ConnectError).rawMessage})`);
   if (e instanceof ConnectError) {
+    if (e.code === Code.PermissionDenied && e.rawMessage.includes("not entitled to Chainguard Workspaces")) {
+      return new WorkspacesNotEnabledError(`Workspaces is not turned on for this organization; an owner can turn it on with enableWorkspaces() or \`chainguard-sandbox enable\` (${e.rawMessage})`);
+    }
     if (e.code === Code.ResourceExhausted) return new LimitReachedError(`session limit reached; kill an existing sandbox first (${e.rawMessage})`);
     if (e.code === Code.NotFound) return new SandboxNotFoundError("sandbox", e.rawMessage);
     return new SandboxError(`${Code[e.code]}: ${e.rawMessage}`);

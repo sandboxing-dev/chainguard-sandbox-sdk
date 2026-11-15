@@ -6,6 +6,7 @@
 export * from "./auth";
 export * from "./login";
 export * from "./orgs";
+export * from "./setup";
 export * from "./client";
 export * from "./sessions";
 export * from "./url";

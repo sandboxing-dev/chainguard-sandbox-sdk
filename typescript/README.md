@@ -10,14 +10,28 @@ Documentation: https://chainguard-sdk.sandboxing.dev/
 
 ## Install
 
-The package isn't published to npm yet. Use it from a clone of the repository (Bun 1.3+):
+The package isn't published to npm yet, and Bun can't install from a subdirectory of a Git repository, so
+clone the repository next to your project and add it by path (Bun 1.3+). Starting from the directory you
+keep projects in:
 
 ```sh
 git clone https://github.com/sandboxing-dev/chainguard-sandbox-sdk
-cd chainguard-sandbox-sdk/typescript && bun install
-
-# in your own project:
+mkdir my-app && cd my-app
+bun init -y
 bun add ../chainguard-sandbox-sdk/typescript
+```
+
+`../chainguard-sandbox-sdk/typescript` is the path from `my-app` to the clone's `typescript` directory. In a
+project you already have, run only the `bun add` line there, with the path from that project to the clone.
+The CLI is then `bunx chainguard-sandbox` (`login`, `status`, `enable`, `orgs`, `ls`, `rm`).
+
+To work in the clone itself, everything runs from this directory (`typescript/`):
+
+```sh
+cd chainguard-sandbox-sdk/typescript
+bun install
+bun bin/chainguard-sandbox.ts login       # also: status, enable, orgs, ls, rm
+bun examples/quickstart.ts                # create a sandbox, run a command, use files
 ```
 
 ## Quick Example

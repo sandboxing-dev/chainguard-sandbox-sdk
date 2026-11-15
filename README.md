@@ -30,22 +30,43 @@ Each directory has its own README, tests and example programs (`examples/`).
 
 ## Getting Started
 
-1. **Get a Chainguard account with Workspaces.** New to Chainguard: sign up for Workspaces at
-   [console.chainguard.dev/workspaces/signup](https://console.chainguard.dev/workspaces/signup). Already have
-   a Chainguard account: enable Workspaces in it. The account is managed in the Chainguard Console at
-   [console.chainguard.dev](https://console.chainguard.dev).
-2. **Log in** once, with the CLI that comes with any of the packages. It opens your browser, and all three
+The [Quickstart](https://chainguard-sdk.sandboxing.dev/quickstart/) has every step with commands for each
+language. In short:
+
+1. **Create a Chainguard account and organization** at
+   [console.chainguard.dev/workspaces/signup](https://console.chainguard.dev/workspaces/signup). The sign-up
+   flow asks for your new organization's details: finish creating the organization before you go on.
+2. **Install the SDK into a project** (see each language's README for the exact commands).
+3. **Log in** once, with the CLI that comes with any of the packages. It opens your browser, and all three
    packages share the saved login:
 
     ```sh
     go run github.com/sandboxing-dev/chainguard-sandbox-sdk/go/cmd/chainguard-sandbox@latest login
+    # or, from the go/ directory of a clone of this repository:
+    go run ./cmd/chainguard-sandbox login
     ```
 
-3. **Choose the organization**, if you belong to more than one: `export CHAINCTL_SANDBOX_INSTANCE=XXXXXX`, or pass
-   it in code. The ID is the organization UID on the Console's **Settings** page, or list your organization IDs
-   with `… chainguard-sandbox orgs`. With a single organization it's detected automatically.
-4. **Create a sandbox** with the example above, or see the
-   [Quickstart](https://chainguard-sdk.sandboxing.dev/quickstart/).
+   The same CLI comes with the other packages. In a clone: `uv run chainguard-sandbox login` from `python/`, or
+   `bun bin/chainguard-sandbox.ts login` from `typescript/` (after `bun install`).
+
+4. **Turn on Workspaces for the organization**, once, as one of its owners. A new organization starts with it
+   off, and every create then fails with "this organization is not entitled to Chainguard Workspaces".
+
+    ```sh
+    go run github.com/sandboxing-dev/chainguard-sandbox-sdk/go/cmd/chainguard-sandbox@latest status   # where it stands
+    go run github.com/sandboxing-dev/chainguard-sandbox-sdk/go/cmd/chainguard-sandbox@latest enable   # turn it on
+    # or, from the go/ directory of a clone:
+    go run ./cmd/chainguard-sandbox status
+    go run ./cmd/chainguard-sandbox enable
+    ```
+
+   `enable` lists the legal documents the organization has to accept and asks before accepting them. The
+   same can be done from code (`enable_workspaces`, `enableWorkspaces`, `sandbox.Enable`) or with Chainguard's
+   own CLI (`chainctl develop init --parent XXXXXX`).
+5. **Choose the organization**, if you belong to more than one: `export CHAINCTL_SANDBOX_INSTANCE=XXXXXX`, or pass
+   it in code. List your organization IDs with `… chainguard-sandbox orgs`. With a single organization it's
+   detected automatically.
+6. **Create a sandbox** with the example above.
 
 ## What's Inside
 
@@ -59,6 +80,7 @@ Each package has two layers:
 
 The protocol is in [`proto/sandbox/runtime/session/v1/session.proto`](proto/sandbox/runtime/session/v1/session.proto):
 the subset of the Sessions API the SDK uses (eight RPCs), with the service's real names and field numbers.
+Turning Workspaces on for an organization uses four calls to Chainguard's platform API over HTTPS.
 Interactive terminals, workspace syncing, forwarding and the other parts of the Workspaces API aren't
 included. The [Protocol](https://chainguard-sdk.sandboxing.dev/protocol/) pages describe
 it.

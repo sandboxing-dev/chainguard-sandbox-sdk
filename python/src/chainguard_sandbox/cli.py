@@ -3,6 +3,8 @@
     chainguard-sandbox login                  # browser login, saved for later runs (no chainctl needed)
     chainguard-sandbox orgs                   # your organizations (auto-detected if you have one)
     export CHAINCTL_SANDBOX_INSTANCE=XXXXXX   # only needed with several
+    chainguard-sandbox status                 # is Workspaces turned on for the organization?
+    chainguard-sandbox enable                 # turn it on (asks before accepting the terms)
     chainguard-sandbox ls                     # this SDK's sandboxes
     chainguard-sandbox rm SANDBOX_ID          # delete one
 """
@@ -13,7 +15,8 @@ import os
 import sys
 from datetime import datetime
 
-USAGE = "usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | ls | rm SANDBOX_ID"
+USAGE = ("usage: chainguard-sandbox login [github|google-oauth2|gitlab] | logout | whoami | orgs | status [ORG] | "
+         "enable [--accept-terms] [ORG] | ls | rm SANDBOX_ID")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
             return _login_cmd(cmd, rest)
         if cmd == "orgs" and not rest:
             return _orgs()
+        if cmd in ("status", "enable"):
+            return _setup_cmd(cmd, rest)
         if cmd == "ls" and not rest:
             return _ls()
         if cmd == "rm" and len(rest) == 1:
@@ -51,6 +56,60 @@ def _orgs() -> int:
     print(f"{'ID'.ljust(w)}  NAME")
     for o in orgs:
         print(f"{o.id.ljust(w)}  {o.name}")
+    return 0
+
+
+def _print_status(st) -> None:
+    print(f"organization: {st.organization}\nplan:         {st.plan}\nworkspaces:   {'on' if st.enabled else 'off'}")
+    if st.max_sandboxes or st.max_sandboxes_per_user:
+        print(f"sandboxes:    up to {st.max_sandboxes_per_user} per user, {st.max_sandboxes} in the organization")
+    if not st.missing_terms:
+        print("terms:        accepted")
+    else:
+        print("terms:        not accepted yet:")
+        for d in st.missing_terms:
+            print(f"  - {d.label}: {d.url}")
+
+
+def _setup_cmd(cmd: str, rest: list[str]) -> int:
+    """status [ORG] | enable [--accept-terms] [ORG]"""
+    from chainguard_sandbox import TermsNotAcceptedError, enable_workspaces, workspaces_status
+
+    accept = any(a in ("--accept-terms", "--yes") for a in rest)
+    orgs = [a for a in rest if a not in ("--accept-terms", "--yes")]
+    if len(orgs) > 1 or any(a.startswith("-") for a in orgs) or (accept and cmd == "status"):
+        print(USAGE, file=sys.stderr)
+        return 2
+    org = orgs[0] if orgs else None
+    st = workspaces_status(instance=org)
+    if cmd == "status":
+        _print_status(st)
+        if not st.ready:
+            print("\nSandboxes can't be created yet. An organization owner can turn Workspaces on with: chainguard-sandbox enable")
+            return 1
+        return 0
+    if st.ready:
+        _print_status(st)
+        print("\nWorkspaces is already on.")
+        return 0
+    print(f"Turning on Chainguard Workspaces (and Checks) for organization {st.organization}.")
+    if st.missing_terms and not accept:
+        print("\nThe organization has to accept these documents first:")
+        for d in st.missing_terms:
+            print(f"  - {d.label}: {d.url}")
+        answer = input('\nDo you accept them on behalf of the organization? Type "yes" to accept: ')
+        if answer.strip().lower() != "yes":
+            print("chainguard-sandbox: not accepted; nothing was changed", file=sys.stderr)
+            return 1
+        accept = True
+    try:
+        st = enable_workspaces(accept_terms=accept, instance=st.organization)
+    except TermsNotAcceptedError as e:
+        print(f"chainguard-sandbox: {e}\nRe-run with --accept-terms once you have read them", file=sys.stderr)
+        return 1
+    print()
+    _print_status(st)
+    print("\nWorkspaces is on. Create a sandbox with the SDK, or list them with: chainguard-sandbox ls")
     return 0
 
 

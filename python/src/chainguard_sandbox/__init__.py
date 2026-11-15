@@ -30,6 +30,7 @@ from chainguard_sandbox._sandbox import (
     WriteInfo,
     environment_document,
 )
+from chainguard_sandbox._setup import TermsDocument, WorkspacesStatus, enable_workspaces, workspaces_status
 from chainguard_sandbox.workspaces.orgs import Organization, list_organizations
 from chainguard_sandbox.errors import (
     CommandExitError,
@@ -42,7 +43,9 @@ from chainguard_sandbox.errors import (
     SandboxBusyError,
     SandboxError,
     SandboxNotFoundError,
+    TermsNotAcceptedError,
     TimeoutError,
+    WorkspacesNotEnabledError,
 )
 
 __all__ = [
@@ -51,4 +54,6 @@ __all__ = [
     "InvalidPathError", "LimitReachedError", "NotFoundError", "OutcomeUnknownError", "ProcessInfo", "Sandbox",
     "SandboxBusyError", "SandboxError", "SandboxInfo", "SandboxNotFoundError", "TimeoutError", "WriteInfo",
     "environment_document", "Organization", "list_organizations",
+    "TermsDocument", "TermsNotAcceptedError", "WorkspacesNotEnabledError", "WorkspacesStatus",
+    "enable_workspaces", "workspaces_status",
 ]
