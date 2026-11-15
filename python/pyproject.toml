@@ -1,0 +1,40 @@
+[project]
+name = "chainguard-sandbox-sdk"
+version = "0.1.0"
+description = "Simple Chainguard Sandbox SDK for Python: create sandboxes on Chainguard Workspaces, run commands, move files (unofficial)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    # the generated stubs check these runtime versions (gencode: protobuf 7.35.1, grpcio 1.85.1)
+    "grpcio>=1.85.1",
+    "protobuf>=7.35.1,<8",
+]
+
+[project.urls]
+Documentation = "https://chainguard-sdk.sandboxing.dev/"
+Repository = "https://github.com/sandboxing-dev/chainguard-sandbox-sdk"
+
+[project.scripts]
+chainguard-sandbox = "chainguard_sandbox.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "chainguard_sandbox"
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.85.1",
+    "pyright>=1.1.400",
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["src", "examples"]
+exclude = ["src/chainguard_sandbox/workspaces/_gen", "**/__pycache__", ".venv"]

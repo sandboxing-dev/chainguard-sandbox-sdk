@@ -1,0 +1,13 @@
+# Go
+go/chainguard-sandbox
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+# TypeScript
+node_modules/
+# editors and OS
+.DS_Store
+.idea/
+.vscode/

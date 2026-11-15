@@ -1,0 +1,38 @@
+{
+  "name": "chainguard-sandbox-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Simple Chainguard Sandbox SDK for TypeScript (Bun): create sandboxes on Chainguard Workspaces, run commands, move files",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sandboxing-dev/chainguard-sandbox-sdk",
+    "directory": "typescript"
+  },
+  "homepage": "https://chainguard-sdk.sandboxing.dev/",
+  "type": "module",
+  "module": "src/sandbox/index.ts",
+  "main": "src/sandbox/index.ts",
+  "bin": {
+    "chainguard-sandbox": "bin/chainguard-sandbox.ts"
+  },
+  "scripts": {
+    "gen": "../scripts/gen-proto.sh typescript",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2",
+    "@connectrpc/connect": "^2",
+    "@connectrpc/connect-node": "^2"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.17.0",
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  },
+  "exports": {
+    ".": "./src/sandbox/index.ts",
+    "./workspaces": "./src/index.ts"
+  }
+}

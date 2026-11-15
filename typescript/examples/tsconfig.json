@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ESNext", "module": "ESNext", "moduleResolution": "bundler", "strict": true, "noEmit": true,
+    "skipLibCheck": true, "lib": ["ESNext"],
+    "typeRoots": ["../node_modules/@types"], "types": ["bun"],
+    "paths": {
+      "chainguard-sandbox-sdk": ["../src/sandbox/index.ts"],
+      "chainguard-sandbox-sdk/workspaces": ["../src/index.ts"]
+    }
+  },
+  "include": ["*.ts"]
+}

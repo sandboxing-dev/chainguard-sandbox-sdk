@@ -1,0 +1,234 @@
+// The subset of the Chainguard Workspaces Sessions API that the simple sandbox SDKs use: eight RPCs
+// and only the messages and fields they read or write. It's compatible with the Sessions API as used by
+// chainctl 0.2.398. Package, service, message and enum names and every field number match the service,
+// so this subset talks to the real API; fields the service sends that aren't listed here are skipped.
+//
+// Not included (not used by the simple sandbox API): interactive terminals, reconnect and hand-off,
+// workspace syncing (DELTA_TAR uploads), HTTP and credential forwarding, checks (RunCI), environment
+// validation and generation, policies and limits, credential enrollment, questions and sharing.
+//
+// Regenerate the Go, Python and TypeScript code with ../../../../../scripts/gen-proto.sh.
+
+syntax = "proto3";
+
+package chainguard.sandbox.runtime.session.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/sandboxing-dev/chainguard-sandbox-sdk/go/api/sessionv1;sessionv1";
+
+service Sessions {
+  rpc CreateSession(CreateSessionRequest) returns (Session);
+  rpc GetSession(GetSessionRequest) returns (Session);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc UpdateSession(UpdateSessionRequest) returns (Session);
+  rpc DeleteSession(DeleteSessionRequest) returns (google.protobuf.Empty);
+  rpc HeartbeatSession(HeartbeatSessionRequest) returns (Session);
+  rpc AttachSession(stream AttachRequest) returns (stream AttachResponse);
+  rpc Exec(ExecRequest) returns (stream ExecResponse);
+}
+
+// ---- the session resource ----
+
+message Session {
+  string name = 1; // output: instances/{organization}/sessions/{session}
+  string display_name = 2;
+  string short_id = 3; // output
+  string owner = 4; // output
+  google.protobuf.Timestamp create_time = 5; // output
+
+  // Set once, at create.
+  oneof environment {
+    Source source = 7; // start from a repository
+    Workspace workspace = 33; // start with an empty /work
+  }
+
+  Phase phase = 11; // output
+  google.protobuf.Timestamp park_after = 13; // output
+  google.protobuf.Timestamp expire_time = 14; // output
+  string message = 18; // output: the latest status text
+  google.protobuf.Timestamp guest_started_time = 23; // output: set once the VM has booted
+  bool workspace_pending = 24; // output: the first attach hasn't uploaded the workspace yet
+  google.protobuf.Timestamp held_until = 34; // output
+  IdlePolicy idle = 35;
+  string region = 43; // output
+  SessionResourceLimit max_resource_class = 44; // output: the VM's size
+  ParkRequest park_request = 53;
+
+  enum ParkRequest {
+    PARK_REQUEST_UNSPECIFIED = 0;
+    PARK_REQUEST_PARK = 1; // snapshot and stop now
+    PARK_REQUEST_RESTART = 2;
+  }
+}
+
+message SessionResourceLimit {
+  int32 cpus = 1;
+  int64 memory_mib = 2;
+  optional int64 disk_mib = 3;
+}
+
+enum Phase {
+  PHASE_UNSPECIFIED = 0;
+  CREATING = 1;
+  ATTACHED = 2;
+  IDLE = 3;
+  PARKED = 4;
+  REAPED = 5;
+}
+
+enum IdlePolicy {
+  IDLE_POLICY_UNSPECIFIED = 0;
+  PARK_WHEN_IDLE = 1;
+  KEEP_RUNNING = 2;
+  AUTO_HOLD = 3;
+}
+
+enum Provenance {
+  PROVENANCE_UNSPECIFIED = 0;
+  AUTHORED = 1;
+  MIGRATED = 2;
+  SYNTHESIZED = 3;
+}
+
+// Session.workspace: start with an empty /work.
+message Workspace {
+  string label = 1; // required
+  string repository = 2;
+  string revision = 3;
+  bytes document = 4; // required: the environment document (YAML)
+  Provenance provenance = 5; // required
+}
+
+// Session.source: the service clones a repository into /work.
+message Source {
+  string repository = 1; // required
+  string revision = 2;
+  bytes fallback_document = 3; // used when the repository has no environment file
+  bool fallback_used = 4; // output
+}
+
+// ---- unary calls ----
+
+message CreateSessionRequest {
+  string parent = 1; // required: instances/{organization}
+  Session session = 2; // required
+}
+
+message GetSessionRequest {
+  string name = 1; // required
+}
+
+message ListSessionsRequest {
+  string parent = 1; // required: instances/{organization}
+  int32 page_size = 2;
+  string page_token = 3;
+  string owner = 4; // empty: the caller's own sessions
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+  string next_page_token = 2;
+}
+
+message UpdateSessionRequest {
+  Session session = 1; // required
+  google.protobuf.FieldMask update_mask = 2; // required
+}
+
+message DeleteSessionRequest {
+  string name = 1; // required
+}
+
+message HeartbeatSessionRequest {
+  string name = 1; // required
+  google.protobuf.Duration hold_for = 2;
+}
+
+// ---- Exec: run one process ----
+
+message ExecRequest {
+  string name = 1; // required: the session
+  repeated string argv = 2; // required
+  bytes stdin = 3; // sent up front; at most 16 MiB
+  google.protobuf.Duration deadline = 4;
+}
+
+message ExecResponse {
+  oneof event {
+    bytes stdout = 1;
+    bytes stderr = 2;
+    Exited exited = 3; // always the last event
+  }
+
+  message Exited {
+    reserved 2;
+    reserved "signal";
+    int32 code = 1;
+    bool timed_out = 3;
+  }
+}
+
+// ---- AttachSession: only the first-attach upload ----
+
+message AttachRequest {
+  oneof input {
+    Open open = 1; // first message
+    WorkspaceChunk workspace_chunk = 4;
+  }
+
+  message Open {
+    string name = 1; // required: the session
+    Resume resume = 4; // empty on a first attach
+  }
+
+  message Resume {
+    uint64 incarnation = 1;
+    int64 offset = 2;
+    uint32 pty_id = 3;
+  }
+
+  message WorkspaceChunk {
+    bytes data = 1;
+    bool last = 2;
+    Format format = 3;
+    Encoding encoding = 4;
+
+    enum Format {
+      FORMAT_UNSPECIFIED = 0;
+      FULL_TAR = 1;
+      DELTA_TAR = 2;
+    }
+
+    enum Encoding {
+      ENCODING_UNSPECIFIED = 0;
+      GZIP = 1;
+    }
+  }
+}
+
+message AttachResponse {
+  oneof output {
+    Detached detached = 4; // another client took over the session
+    Opened opened = 5;
+    WorkspaceReady workspace_ready = 6;
+  }
+
+  message Opened {
+    int32 rows = 1;
+    int32 cols = 2;
+    string session_name = 3;
+    bool workspace_pending = 4; // an upload is expected
+    repeated AttachRequest.WorkspaceChunk.Encoding workspace_encodings = 6;
+  }
+
+  message WorkspaceReady {
+    int64 bytes = 1;
+    google.protobuf.Duration elapsed = 2;
+  }
+
+  message Detached {}
+}

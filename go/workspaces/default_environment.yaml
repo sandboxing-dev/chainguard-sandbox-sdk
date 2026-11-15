@@ -1,0 +1,58 @@
+# Copyright 2026 Chainguard, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# The default `chainctl develop` environment: one environment-only check with
+# a shell and the everyday tools, nothing specific to any repository. A
+# session compiled from it boots this shell; it runs no steps. Replace the
+# packages with the toolchains the repository needs.
+#
+# Commit this file as .chainguard/ci.yaml to make it the repository's own —
+# but a check with nothing to run produces no verdict, so the check paths
+# refuse it. Give `develop:` a `cmd:` before committing it, or keep it here
+# as the session default it is.
+version: 1
+environment:
+  packages:
+    # The shell and its core.
+    - bash
+    - coreutils
+    - make
+    - curl
+    - git
+    # apk, so the session can install what this list lacks
+    # (`apk add python-3.13`) without leaving the shell.
+    - apk-tools
+    # Coding agents. `claude` is the Claude Code CLI; `--with claude` lends it
+    # this machine's login. (`codex` is packaged but published only to the
+    # build-time-only private repo, which a session's own token does not
+    # reach today; add it here once it is in a runtime-visible repo.)
+    - claude
+    # Everyday tools: GitHub, JSON, search, paging, editing. `gh` has no
+    # credential: a session forwards git fetch and push for its own
+    # repository and the checkout's other remotes, not the GitHub API.
+    - gh
+    - jq
+    - ripgrep
+    - less
+    - vim
+    # Cloud: the Google Cloud CLI. Sessions get Application Default
+    # Credentials for the owning org's GCP account association, so gcloud
+    # works as that account without a login.
+    - google-cloud-sdk
+    # Chainguard: chainctl. It acts as the session's owner without a login
+    # through the `chainguard` credential, on by default at its narrow scope
+    # (read and MCP capabilities at the session's organization); after
+    # `--with none`, turn it on with `chainctl develop SESSION --with chainguard`.
+    - chainctl
+checks:
+  develop:
+    # Open egress: `egress` is the allowlist, and "*" allows every host. The
+    # platform's mandatory deny floor (cloud metadata, loopback, private
+    # ranges) still applies. `policy` is not a default; it is what happens to
+    # a connection outside the allowlist or into the floor: `deny` refuses
+    # the connection and the guest keeps running, `destroy` tears the guest
+    # down.
+    network:
+      egress:
+        - "*"
+      policy: deny
