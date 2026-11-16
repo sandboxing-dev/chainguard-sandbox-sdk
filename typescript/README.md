@@ -23,7 +23,8 @@ bun add ../chainguard-sandbox-sdk/typescript
 
 `../chainguard-sandbox-sdk/typescript` is the path from `my-app` to the clone's `typescript` directory. In a
 project you already have, run only the `bun add` line there, with the path from that project to the clone.
-The CLI is then `bunx chainguard-sandbox` (`login`, `status`, `enable`, `orgs`, `ls`, `rm`).
+The CLI is then `bun run chainguard-sandbox` (`login`, `status`, `enable`, `orgs`, `ls`, `rm`), run from that
+project's directory: it is the copy installed in the project's `node_modules`, not a package from npm.
 
 To work in the clone itself, everything runs from this directory (`typescript/`):
 
