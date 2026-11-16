@@ -3,8 +3,8 @@
 // Workspaces has to be turned on for an organization before sandboxes can be created in it. These
 // do what `chainctl develop init --parent ORG` does for an organization that already exists (accept
 // the terms, link a GitHub account, then turn the feature on), without chainctl.
-import { type TokenSource } from "../auth";
-import { detectInstance } from "../orgs";
+import { type TokenSource } from "../auth.js";
+import { detectInstance } from "../orgs.js";
 import {
   ENABLE_TERMS,
   GITHUB_APP_INSTALL_URL,
@@ -20,10 +20,10 @@ import {
   termsDocument,
   workspacesEntitlement,
   type TermsDocument,
-} from "../setup";
-import { GitHubAppNotInstalledError, GitHubLinkRequiredError, TermsNotAcceptedError } from "./errors";
+} from "../setup.js";
+import { GitHubAppNotInstalledError, GitHubLinkRequiredError, TermsNotAcceptedError } from "./errors.js";
 
-export type { TermsDocument } from "../setup";
+export type { TermsDocument } from "../setup.js";
 
 /** An organization's Workspaces setup. */
 export interface WorkspacesStatus {

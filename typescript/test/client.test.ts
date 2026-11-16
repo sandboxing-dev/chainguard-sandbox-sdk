@@ -35,9 +35,9 @@ import {
   tarBytes,
   writeFile,
   pb,
-} from "../src/index";
-import { CommandHandle, OutcomeUnknownError as SandboxOutcomeUnknown, Sandbox, SandboxError, TimeoutError } from "../src/sandbox";
-import { timings } from "../src/sandbox/timings";
+} from "../src/index.js";
+import { CommandHandle, OutcomeUnknownError as SandboxOutcomeUnknown, Sandbox, SandboxError, TimeoutError } from "../src/sandbox/index.js";
+import { timings } from "../src/sandbox/timings.js";
 
 type SessionInit = MessageInitShape<typeof pb.SessionSchema>;
 

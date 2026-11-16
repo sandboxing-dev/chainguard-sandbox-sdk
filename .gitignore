@@ -7,6 +7,11 @@ __pycache__/
 .pytest_cache/
 # TypeScript
 node_modules/
+typescript/dist/
+typescript/LICENSE
+typescript/NOTICE
+# Python builds
+dist/
 # editors and OS
 .DS_Store
 .idea/

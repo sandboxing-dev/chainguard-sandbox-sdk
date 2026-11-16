@@ -3,7 +3,8 @@
 // target directory, and no link that leads outside it is left behind.
 import { lstatSync, mkdirSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { SandboxError } from "./errors";
+import { gunzipSync } from "node:zlib";
+import { SandboxError } from "./errors.js";
 
 export interface TarItem {
   name: string;
@@ -138,7 +139,7 @@ export function extractTarGz(tgz: Uint8Array, dir: string): void {
   const links: string[] = [];
   let escaping: string[] = [];
   try {
-    for (const it of readTar(Bun.gunzipSync(tgz as Uint8Array<ArrayBuffer>))) {
+    for (const it of readTar(gunzipSync(tgz))) {
       const name = it.name.replace(/^\.\//, "");
       if (name === "" || name === "." || name === "./") continue;
       if (it.name.startsWith("/") || name.split("/").includes("..")) throw new SandboxError(`refusing archive entry ${JSON.stringify(it.name)} outside the target`);

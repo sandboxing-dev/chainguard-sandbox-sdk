@@ -10,19 +10,31 @@
 //   bun bin/chainguard-sandbox.ts enable                                # turn it on (asks before accepting the terms)
 //   bun bin/chainguard-sandbox.ts ls                                    # your sandboxes
 //   bun bin/chainguard-sandbox.ts rm SANDBOX_ID                         # delete one
-import { FileLoginStore, browserLogin, browserLoginToken, defaultLoginFile, listOrganizations, logout, tokenClaims } from "../src/index";
-import { GitHubAppNotInstalledError, Sandbox, TermsNotAcceptedError, enableWorkspaces, workspacesStatus, type WorkspacesStatus } from "../src/sandbox/index";
-import { GITHUB_APP_INSTALL_URL, openBrowser } from "../src/index";
+import { createInterface } from "node:readline/promises";
+import { FileLoginStore, browserLogin, browserLoginToken, defaultLoginFile, listOrganizations, logout, tokenClaims } from "../src/index.js";
+import { GitHubAppNotInstalledError, Sandbox, TermsNotAcceptedError, enableWorkspaces, workspacesStatus, type WorkspacesStatus } from "../src/sandbox/index.js";
+import { GITHUB_APP_INSTALL_URL, openBrowser } from "../src/index.js";
 
 /**
- * Ordered stdout/stderr writers. Bun's process.stdout.write can drop data still
- * queued for a pipe when the process exits, so output goes through Bun.write
- * (which resolves once written) and is awaited before exiting.
+ * Ordered stdout/stderr writers. A process.exit can drop output still queued for a pipe, so each
+ * write is awaited (its callback runs once the data is handed to the system) before exiting.
  */
 let outChain: Promise<unknown> = Promise.resolve();
 let errChain: Promise<unknown> = Promise.resolve();
-const out = (b: Uint8Array | string) => void (outChain = outChain.then(() => Bun.write(Bun.stdout, b)));
-const err = (b: Uint8Array | string) => void (errChain = errChain.then(() => Bun.write(Bun.stderr, b)));
+const write = (s: NodeJS.WriteStream, b: Uint8Array | string) => new Promise<void>((r) => void s.write(b, () => r()));
+const out = (b: Uint8Array | string) => void (outChain = outChain.then(() => write(process.stdout, b)));
+const err = (b: Uint8Array | string) => void (errChain = errChain.then(() => write(process.stderr, b)));
+/** Ask a question on the terminal and read one line; "" when input is closed. */
+async function ask(question: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return await rl.question(question + " ");
+  } catch {
+    return "";
+  } finally {
+    rl.close();
+  }
+}
 const println = (s: string) => out(s + "\n");
 
 function usage(): never {
@@ -101,8 +113,8 @@ async function setupCmd(cmd: string, args: string[]): Promise<number | void> {
     println("\nThe organization has to accept these documents first:");
     for (const d of st.missingTerms) println(`  - ${d.label}: ${d.url}`);
     await outChain;
-    const answer = prompt('\nDo you accept them on behalf of the organization? Type "yes" to accept:');
-    if ((answer ?? "").trim().toLowerCase() !== "yes") {
+    const answer = await ask('\nDo you accept them on behalf of the organization? Type "yes" to accept:');
+    if (answer.trim().toLowerCase() !== "yes") {
       err("chainguard-sandbox: not accepted; nothing was changed\n");
       return 1;
     }
@@ -130,7 +142,7 @@ async function setupCmd(cmd: string, args: string[]): Promise<number | void> {
       println(`\nThe Chainguard GitHub App is not installed on that GitHub account yet.\nInstall it here (opening it in your browser), then come back:\n  ${e.installUrl}`);
       await outChain;
       await openBrowser(e.installUrl);
-      prompt("\nPress Enter once the app is installed, to authorize again:");
+      await ask("\nPress Enter once the app is installed, to authorize again:");
     }
   }
   println("");

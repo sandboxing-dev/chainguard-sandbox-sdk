@@ -24,7 +24,7 @@ with Sandbox.create(packages=["bash", "coreutils", "python-3.13"]) as sbx:   # d
 |---|---|---|---|
 | Go 1.23+ | [`go/`](go/) | `go get github.com/sandboxing-dev/chainguard-sandbox-sdk/go@latest` | `github.com/sandboxing-dev/chainguard-sandbox-sdk/go/sandbox` |
 | Python 3.12+ | [`python/`](python/) | `uv add "chainguard-sandbox-sdk @ git+https://github.com/sandboxing-dev/chainguard-sandbox-sdk#subdirectory=python"` | `from chainguard_sandbox import Sandbox` |
-| TypeScript (Bun 1.3+) | [`typescript/`](typescript/) | clone this repository, then `bun add ./chainguard-sandbox-sdk/typescript` | `import { Sandbox } from "chainguard-sandbox-sdk"` |
+| TypeScript (Node.js 20.10+ or Bun 1.3+) | [`typescript/`](typescript/) | clone this repository, then `bun add ./chainguard-sandbox-sdk/typescript` | `import { Sandbox } from "chainguard-sandbox-sdk"` |
 
 Each directory has its own README, tests and example programs (`examples/`).
 
@@ -95,6 +95,8 @@ python3 scripts/gen_sandbox_scripts.py  # regenerate the sandbox shell scripts f
 (cd python && uv run pytest -q)
 (cd typescript && bun install && bun test)
 ```
+
+Publishing the Python and TypeScript packages: [`PUBLISHING.md`](PUBLISHING.md).
 
 The unit tests use in-process fake servers and don't contact the service. `scripts/gen-proto.sh` lists
 the code generators it needs.

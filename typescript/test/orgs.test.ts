@@ -16,7 +16,7 @@ import {
   detectInstance,
   listOrganizations,
   staticToken,
-} from "../src/index";
+} from "../src/index.js";
 
 let groups: { id: string; name: string }[] = [];
 let srv: ReturnType<typeof Bun.serve>;

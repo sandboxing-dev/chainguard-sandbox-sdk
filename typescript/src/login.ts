@@ -11,7 +11,10 @@ import { closeSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unl
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { DEFAULT_AUDIENCE, DEFAULT_ISSUER, type TokenSource } from "./auth";
+import { spawn } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
+import { serveLoopback } from "./loopback.js";
+import { DEFAULT_AUDIENCE, DEFAULT_ISSUER, type TokenSource } from "./auth.js";
 
 export class AccountNotFoundError extends Error {}
 
@@ -84,7 +87,7 @@ export async function browserLogin(o: LoginOptions = {}): Promise<LoginResult> {
   if (o.identityProvider && o.orgName) throw new Error("chainguard-sandbox: login: set at most one of identityProvider and orgName");
   const issuer = (o.issuer ?? DEFAULT_ISSUER).replace(/\/$/, "");
   const out = o.out ?? ((m: string) => process.stderr.write(m + "\n"));
-  const srv = startLoginServer();
+  const srv = await startLoginServer();
   try {
     const p: [string, string][] = [];
     if (o.identityProvider) p.push(["idp_id", o.identityProvider]);
@@ -116,7 +119,7 @@ export async function browserLogin(o: LoginOptions = {}): Promise<LoginResult> {
     });
     if (outcome.err) throw outcome.err;
     // Keep serving until the browser has loaded the success page.
-    await Promise.race([srv.pageServed, Bun.sleep(5000), new Promise((r) => stop.addEventListener("abort", r, { once: true }))]);
+    await Promise.race([srv.pageServed, sleep(5000), new Promise((r) => stop.addEventListener("abort", r, { once: true }))]);
     return outcome.res!;
   } finally {
     srv.stop();
@@ -131,7 +134,7 @@ interface LoginServer {
 }
 
 /** Exported for tests. */
-export function startLoginServer(): LoginServer {
+export async function startLoginServer(): Promise<LoginServer> {
   let finish!: (o: { res?: LoginResult; err?: unknown }) => void;
   let done = false;
   let gotToken = false;
@@ -145,35 +148,30 @@ export function startLoginServer(): LoginServer {
     finish(o);
   };
   const headers = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch(req) {
-      if (req.method !== "GET") return new Response("method not allowed", { status: 405, headers });
-      const u = new URL(req.url);
-      if (u.pathname === "/callback") {
-        const tok = u.searchParams.get("token") ?? "";
-        if (!tok) {
-          const code = Number(u.searchParams.get("status_code") ?? 0) || 0;
-          if (code === 404) {
-            once({ err: new AccountNotFoundError("chainguard-sandbox: login: no Chainguard account for this login (sign up for Workspaces at https://console.chainguard.dev/workspaces/signup, or register with `chainctl auth login`)") });
-            return new Response("No Chainguard account was found for this login.", { status: 404, headers });
-          }
-          const msg = u.searchParams.get("error") || "login failed";
-          once({ err: new Error(`chainguard-sandbox: login: the issuer reported an error (status ${code}): ${msg}`) });
-          return new Response(`Login failed: ${msg}`, { status: 400, headers });
+  const server = await serveLoopback(0, (method, u) => {
+    if (method !== "GET") return { status: 405, headers, body: "method not allowed" };
+    if (u.pathname === "/callback") {
+      const tok = u.searchParams.get("token") ?? "";
+      if (!tok) {
+        const code = Number(u.searchParams.get("status_code") ?? 0) || 0;
+        if (code === 404) {
+          once({ err: new AccountNotFoundError("chainguard-sandbox: login: no Chainguard account for this login (sign up for Workspaces at https://console.chainguard.dev/workspaces/signup, or register with `chainctl auth login`)") });
+          return { status: 404, headers, body: "No Chainguard account was found for this login." };
         }
-        once({ res: { token: tok, refreshToken: u.searchParams.get("refresh_token") ?? "" } });
-        // Redirect so the tokens leave the address bar and history entry.
-        return new Response(null, { status: 303, headers: { ...headers, Location: "/" } });
+        const msg = u.searchParams.get("error") || "login failed";
+        once({ err: new Error(`chainguard-sandbox: login: the issuer reported an error (status ${code}): ${msg}`) });
+        return { status: 400, headers, body: `Login failed: ${msg}` };
       }
-      if (u.pathname === "/") {
-        if (!gotToken) return new Response("not found", { status: 404, headers });
-        queueMicrotask(served);
-        return new Response(DONE_PAGE, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
-      }
-      return new Response("not found", { status: 404, headers });
-    },
+      once({ res: { token: tok, refreshToken: u.searchParams.get("refresh_token") ?? "" } });
+      // Redirect so the tokens leave the address bar and history entry.
+      return { status: 303, headers: { ...headers, Location: "/" } };
+    }
+    if (u.pathname === "/") {
+      if (!gotToken) return { status: 404, headers, body: "not found" };
+      queueMicrotask(served);
+      return { status: 200, headers: { ...headers, "Content-Type": "text/html; charset=utf-8" }, body: DONE_PAGE };
+    }
+    return { status: 404, headers, body: "not found" };
   });
   // The issuer only redirects to localhost; the host name is what chainctl sends.
   // stop() lets requests in flight (the success page) finish; new ones are refused.
@@ -185,8 +183,11 @@ export async function openBrowser(url: string): Promise<boolean> {
   const argv =
     process.platform === "darwin" ? ["open", url] : process.platform === "win32" ? ["rundll32", "url.dll,FileProtocolHandler", url] : ["xdg-open", url];
   try {
-    const p = Bun.spawn(argv, { stdout: "ignore", stderr: "ignore", stdin: "ignore" });
-    return (await p.exited) === 0;
+    return await new Promise<boolean>((resolve) => {
+      const p = spawn(argv[0]!, argv.slice(1), { stdio: "ignore" });
+      p.on("error", () => resolve(false));
+      p.on("exit", (code) => resolve(code === 0));
+    });
   } catch {
     return false;
   }
@@ -339,7 +340,7 @@ export class FileLoginStore implements LoginStore {
       } catch {}
       if (signal?.aborted) throw signal.reason;
       if (Date.now() > deadline) throw new Error(`waiting for ${p}`);
-      await Bun.sleep(100);
+      await sleep(100);
     }
   }
 }

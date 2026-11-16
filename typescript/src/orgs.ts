@@ -7,8 +7,8 @@
 //      belongs to (Chainguard's account API) on first use and takes the only one. With several
 //      it reports them. Turn it off with { detectInstance: false } or $CHAINGUARD_SANDBOX_NO_DETECT_INSTANCE=1.
 // List IDs with listOrganizations(), `chainguard-sandbox orgs` or `chainctl iam organizations list`.
-import { cached, chainctlToken, type TokenSource } from "./auth";
-import { browserLoginToken, PLATFORM_AUDIENCE } from "./login";
+import { cached, chainctlToken, type TokenSource } from "./auth.js";
+import { browserLoginToken, PLATFORM_AUDIENCE } from "./login.js";
 
 export const DEFAULT_PLATFORM_URL = "https://console-api.enforce.dev";
 export const ENV_NO_DETECT_INSTANCE = "CHAINGUARD_SANDBOX_NO_DETECT_INSTANCE";

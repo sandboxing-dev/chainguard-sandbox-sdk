@@ -26,9 +26,11 @@
 // All of these need a token for the platform API (platformTokenSource()), and steps 2 to 4 need
 // the owner role in the organization. Step 3 also needs you to own the GitHub account.
 import { createHash, randomBytes } from "node:crypto";
-import { type TokenSource } from "./auth";
-import { openBrowser } from "./login";
-import { DEFAULT_PLATFORM_URL, platformTokenSource } from "./orgs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { type TokenSource } from "./auth.js";
+import { openBrowser } from "./login.js";
+import { serveLoopback, type LoopbackServer } from "./loopback.js";
+import { DEFAULT_PLATFORM_URL, platformTokenSource } from "./orgs.js";
 
 /** A legal document an organization accepts. */
 export interface TermsDocument {
@@ -284,35 +286,30 @@ export async function authorizeGitHub(start: GitHubOAuthStart, o: GitHubAuthoriz
     });
   let settle!: (r: { code?: string; error?: string }) => void;
   const got = new Promise<{ code?: string; error?: string }>((r) => (settle = r));
-  let server: ReturnType<typeof Bun.serve>;
+  let server: LoopbackServer;
   try {
-    server = Bun.serve({
-      port,
-      hostname: "127.0.0.1",
-      fetch(req) {
-        const u = new URL(req.url);
-        if (u.pathname !== "/callback") return new Response("not found", { status: 404 });
-        const q = u.searchParams;
-        let status = 400;
-        let page: string;
-        if (q.get("error")) {
-          page = "Authorization was denied. You can close this window.";
-          settle({ error: `GitHub refused the authorization: ${q.get("error")}: ${q.get("error_description") ?? ""}` });
-        } else if (q.get("state") !== start.state) {
-          page = "Authorization state mismatch. You can close this window.";
-          settle({ error: "GitHub's redirect carried the wrong state" });
-        } else if (!q.get("code")) {
-          page = "Missing authorization code. You can close this window.";
-          settle({ error: "GitHub's redirect carried no authorization code" });
-        } else {
-          status = 200;
-          page = "Authorization complete. You can close this window and return to the terminal.";
-          settle({ code: q.get("code")! });
-        }
-        // "Connection: close": the browser must not keep this connection for a later attempt, which
-        // gets a new server on the same port.
-        return new Response(page, { status, headers: { "Content-Type": "text/plain; charset=utf-8", Connection: "close" } });
-      },
+    server = await serveLoopback(port, (_method, u) => {
+      if (u.pathname !== "/callback") return { status: 404, body: "not found" };
+      const q = u.searchParams;
+      let status = 400;
+      let page: string;
+      if (q.get("error")) {
+        page = "Authorization was denied. You can close this window.";
+        settle({ error: `GitHub refused the authorization: ${q.get("error")}: ${q.get("error_description") ?? ""}` });
+      } else if (q.get("state") !== start.state) {
+        page = "Authorization state mismatch. You can close this window.";
+        settle({ error: "GitHub's redirect carried the wrong state" });
+      } else if (!q.get("code")) {
+        page = "Missing authorization code. You can close this window.";
+        settle({ error: "GitHub's redirect carried no authorization code" });
+      } else {
+        status = 200;
+        page = "Authorization complete. You can close this window and return to the terminal.";
+        settle({ code: q.get("code")! });
+      }
+      // "Connection: close": the browser must not keep this connection for a later attempt, which
+      // gets a new server on the same port.
+      return { status, headers: { "Content-Type": "text/plain; charset=utf-8", Connection: "close" }, body: page };
     });
   } catch (e) {
     throw new Error(`chainguard-sandbox: listening on loopback port ${port} for GitHub's redirect (choose another port if it is taken): ${e}`);
@@ -324,9 +321,9 @@ export async function authorizeGitHub(start: GitHubOAuthStart, o: GitHubAuthoriz
     } catch {}
     say(opened ? `Opened a browser to authorize with GitHub. If it didn't open, visit:\n  ${url}` : `Open this URL in a browser to authorize with GitHub:\n  ${url}`);
     const timeoutMs = o.timeoutMs ?? 600_000;
-    const res = await Promise.race([got, Bun.sleep(timeoutMs).then(() => ({ error: `the GitHub authorization was not finished within ${timeoutMs} ms` }) as { code?: string; error?: string })]);
+    const res = await Promise.race([got, sleep(timeoutMs).then(() => ({ error: `the GitHub authorization was not finished within ${timeoutMs} ms` }) as { code?: string; error?: string })]);
     if (res.error || !res.code) throw new Error(`chainguard-sandbox: ${res.error}`);
-    await Bun.sleep(100); // let the browser finish loading the result page
+    await sleep(100); // let the browser finish loading the result page
     return { code: res.code, redirectUri, verifier, state: start.state };
   } finally {
     await server.stop(true); // close kept-alive connections too, so the port is free for another attempt

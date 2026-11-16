@@ -1,8 +1,9 @@
 // File helpers over Exec, and local tar builders. Mirrors the Go SDK's workspaces/files.go.
 import { lstatSync, readdirSync, readlinkSync } from "node:fs";
-import type { Client } from "./client";
-import { guestPath, shell } from "./exec";
-import { tarBytes, type TarEntry } from "./tar";
+import { gzipSync } from "node:zlib";
+import type { Client } from "./client.js";
+import { guestPath, shell } from "./exec.js";
+import { tarBytes, type TarEntry } from "./tar.js";
 
 /** A filesystem path for dir + raw relative path bytes. */
 const rawPath = (dir: string, rel: Uint8Array) => Buffer.concat([Buffer.from(dir.replace(/\/$/, "") + "/"), Buffer.from(rel)]);
@@ -61,5 +62,5 @@ export function tarDir(dir: string, skip?: (rel: string, isDir: boolean) => bool
 
 /** gzip'd tarDir. */
 export function tarGzDir(dir: string, skip?: (rel: string, isDir: boolean) => boolean): Uint8Array {
-  return Bun.gzipSync(tarDir(dir, skip));
+  return gzipSync(tarDir(dir, skip));
 }

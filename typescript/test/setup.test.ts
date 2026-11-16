@@ -3,8 +3,8 @@
 // real service.
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { Code, ConnectError } from "@connectrpc/connect";
-import { ENABLE_TERMS, GITHUB_APP_INSTALL_URL, PlatformError, WORKSPACES_TERMS, staticToken } from "../src/index";
-import { GitHubAppNotInstalledError, GitHubLinkRequiredError, TermsNotAcceptedError, WorkspacesNotEnabledError, enableWorkspaces, workspacesStatus } from "../src/sandbox";
+import { ENABLE_TERMS, GITHUB_APP_INSTALL_URL, PlatformError, WORKSPACES_TERMS, staticToken } from "../src/index.js";
+import { GitHubAppNotInstalledError, GitHubLinkRequiredError, TermsNotAcceptedError, WorkspacesNotEnabledError, enableWorkspaces, workspacesStatus } from "../src/sandbox/index.js";
 
 const ORG = "0123456789abcdef0123456789abcdef01234567";
 let accepted = new Set<string>();

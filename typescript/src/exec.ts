@@ -1,8 +1,8 @@
 // Exec: run one process in a session. Mirrors the Go SDK's workspaces/exec.go.
 import { Code, ConnectError } from "@connectrpc/connect";
 import { durationFromMs } from "@bufbuild/protobuf/wkt";
-import type { ExecResponse } from "./gen/sandbox/runtime/session/v1/session_pb";
-import { DEFAULT_WORK_DIR, MAX_EXEC_STDIN, type Client } from "./client";
+import type { ExecResponse } from "./gen/sandbox/runtime/session/v1/session_pb.js";
+import { DEFAULT_WORK_DIR, MAX_EXEC_STDIN, type Client } from "./client.js";
 
 /**
  * The exec stream ended, or failed, without an exit status (chainctl reports

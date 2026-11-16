@@ -1,4 +1,4 @@
-# Simple Chainguard Sandbox SDK for TypeScript (Bun)
+# Simple Chainguard Sandbox SDK for TypeScript (Node.js and Bun)
 
 Create a sandbox on [Chainguard Workspaces](https://console.chainguard.dev/workspaces/signup), run commands in it, move files in and out, and delete it. The
 API is shaped like the E2B, Vercel Sandbox and Modal SDKs.
@@ -10,8 +10,9 @@ Documentation: https://chainguard-sdk.sandboxing.dev/
 
 ## Install
 
-The package isn't published to npm yet, and Bun can't install from a subdirectory of a Git repository, so
-clone the repository next to your project and add it by path (Bun 1.3+). Starting from the directory you
+It runs on Bun 1.3+ and Node.js 20.10+. The package isn't published to npm yet, and neither Bun nor npm
+installs from a subdirectory of a Git repository, so clone the repository next to your project and add it
+by path. With Bun, Starting from the directory you
 keep projects in:
 
 ```sh
@@ -25,6 +26,20 @@ bun add ../chainguard-sandbox-sdk/typescript
 project you already have, run only the `bun add` line there, with the path from that project to the clone.
 The CLI is then `bun run chainguard-sandbox` (`login`, `status`, `enable`, `orgs`, `ls`, `rm`), run from that
 project's directory: it is the copy installed in the project's `node_modules`, not a package from npm.
+
+With Node.js, build the clone once (Node.js runs the compiled JavaScript in `dist/`; Bun runs the
+TypeScript directly), then add it the same way:
+
+```sh
+git clone https://github.com/sandboxing-dev/chainguard-sandbox-sdk
+(cd chainguard-sandbox-sdk/typescript && npm install && npm run build)
+mkdir my-app && cd my-app
+npm init -y && npm pkg set type=module
+npm install ../chainguard-sandbox-sdk/typescript
+```
+
+The CLI is then `npx --no-install chainguard-sandbox` (`--no-install` keeps `npx` from looking on npm when
+it is run outside the project).
 
 To work in the clone itself, everything runs from this directory (`typescript/`):
 
@@ -139,13 +154,31 @@ For unattended use, give the client a token source:
 bun run gen     # ../scripts/gen-proto.sh typescript: protoc + protoc-gen-es from ../proto into src/gen
 ```
 
+## Node.js Specifics
+
+- **`await using`** needs Node.js 24, or TypeScript compiling it for older versions. In plain JavaScript on
+  Node.js 20 or 22, delete the sandbox yourself:
+
+    ```js
+    const sbx = await Sandbox.create({ packages: ["bash", "coreutils"] });
+    try {
+      console.log((await sbx.commands.run("uname -a")).stdout);
+    } finally {
+      await sbx.kill();
+    }
+    ```
+
+- **ES modules only:** the package has no CommonJS build. Use `import`, in a project with
+  `"type": "module"` or in `.mjs` files.
+- **Exit explicitly**, as under Bun (next section): the HTTP/2 connection keeps the process alive.
+
 ## Bun Specifics
 
 - **Exit explicitly, outside `await using`.** connect-node keeps its HTTP/2 session open after calls, so a
   script should end with `process.exit()`. Call it after the block that holds `await using`: exiting inside
   the block skips the disposal, and the sandbox keeps running.
-- **Output before exit:** under Bun, data queued for a pipe can be dropped at exit. Write with
-  `await Bun.write(Bun.stdout, …)` before exiting (the CLI does this).
+- **Output before exit:** data queued for a pipe can be dropped at exit. Wait for the write's callback
+  before exiting (the CLI does this).
 
 ## Checks
 
@@ -153,4 +186,8 @@ bun run gen     # ../scripts/gen-proto.sh typescript: protoc + protoc-gen-es fro
 bun test                          # unit tests (no network)
 bunx tsc --noEmit                 # the package
 bunx tsc --noEmit -p examples     # the examples
+bun run build                     # dist/: the JavaScript and type declarations Node.js uses
 ```
+
+`../scripts/publish-typescript.sh` runs all of these, packs the package, and installs the packed file into
+empty Node.js and Bun projects; see [`../PUBLISHING.md`](../PUBLISHING.md).

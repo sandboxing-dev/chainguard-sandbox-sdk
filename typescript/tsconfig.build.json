@@ -1,0 +1,19 @@
+{
+  // The published build: JavaScript and type declarations in dist/, for Node.js.
+  // ("bun run build" / "npm run build"; Bun itself runs the TypeScript in src/ directly.)
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "ESNext.Disposable"],
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "include": ["src", "bin"]
+}

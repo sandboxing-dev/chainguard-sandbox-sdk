@@ -1,8 +1,13 @@
 {
   "name": "chainguard-sandbox-sdk",
   "version": "0.1.0",
-  "private": true,
-  "description": "Simple Chainguard Sandbox SDK for TypeScript (Bun): create sandboxes on Chainguard Workspaces, run commands, move files",
+  "description": "Simple Chainguard Sandbox SDK for TypeScript (Node.js and Bun): create sandboxes on Chainguard Workspaces, run commands, move files",
+  "keywords": [
+    "chainguard",
+    "sandbox",
+    "workspaces",
+    "sdk"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -11,28 +16,49 @@
   },
   "homepage": "https://chainguard-sdk.sandboxing.dev/",
   "type": "module",
-  "module": "src/sandbox/index.ts",
-  "main": "src/sandbox/index.ts",
-  "bin": {
-    "chainguard-sandbox": "bin/chainguard-sandbox.ts"
+  "engines": {
+    "node": ">=20.10"
   },
+  "main": "dist/src/sandbox/index.js",
+  "types": "dist/src/sandbox/index.d.ts",
+  "exports": {
+    ".": {
+      "bun": "./src/sandbox/index.ts",
+      "types": "./dist/src/sandbox/index.d.ts",
+      "default": "./dist/src/sandbox/index.js"
+    },
+    "./workspaces": {
+      "bun": "./src/index.ts",
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "bin": {
+    "chainguard-sandbox": "bin/chainguard-sandbox.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
   "scripts": {
     "gen": "../scripts/gen-proto.sh typescript",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2",
+    "@bufbuild/protobuf": "^2.7.0",
     "@connectrpc/connect": "^2",
     "@connectrpc/connect-node": "^2"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.17.0",
     "@types/bun": "^1.4.4",
-    "typescript": "^7.0.2"
-  },
-  "exports": {
-    ".": "./src/sandbox/index.ts",
-    "./workspaces": "./src/index.ts"
+    "typescript": "^7.0.2",
+    "@types/node": "^22"
   }
 }

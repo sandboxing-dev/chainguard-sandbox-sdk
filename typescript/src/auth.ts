@@ -5,7 +5,9 @@ export const DEFAULT_AUDIENCE = "https://sessions.chainbox.dev";
 export const DEFAULT_ISSUER = "https://issuer.enforce.dev";
 export const ENV_AUTH_TOKEN = "CHAINCTL_AUTH_TOKEN";
 
-import { browserLoginToken } from "./login";
+import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { browserLoginToken } from "./login.js";
 
 /** Returns a Chainguard bearer token whose audience includes DEFAULT_AUDIENCE. */
 export interface TokenSource {
@@ -36,8 +38,13 @@ export function chainctlToken(opts: { path?: string; audience?: string } = {}): 
   const aud = opts.audience ?? DEFAULT_AUDIENCE;
   return {
     async token(signal) {
-      const p = Bun.spawn([path, "auth", "token", "--audience", aud], { stdout: "pipe", stderr: "pipe", signal });
-      const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+      const { out, err, code } = await new Promise<{ out: string; err: string; code: number | string }>((resolve, reject) => {
+        execFile(path, ["auth", "token", "--audience", aud], { signal, encoding: "utf8" }, (e, stdout, stderr) => {
+          if (e && signal?.aborted) return reject(signal.reason);
+          if (e && typeof e.code !== "number") return reject(e); // not started (e.g. chainctl isn't installed)
+          resolve({ out: stdout, err: stderr, code: e ? e.code! : 0 });
+        });
+      });
       if (code !== 0) throw new Error(`chainctl auth token --audience ${aud}: exit ${code}: ${err.trim()}`);
       const tok = out.trim();
       if (!tok) throw new Error("chainctl auth token returned no token");
@@ -208,7 +215,7 @@ export function envIdToken(name: string): () => Promise<string> {
 /** Reads the OIDC token from a file on every call (e.g. a projected service-account token). */
 export function fileIdToken(path: string): () => Promise<string> {
   return async () => {
-    const v = (await Bun.file(path).text()).trim();
+    const v = (await readFile(path, "utf8")).trim();
     if (!v) throw new Error(`${path} is empty`);
     return v;
   };

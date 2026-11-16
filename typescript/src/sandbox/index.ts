@@ -23,13 +23,15 @@ import { Code, ConnectError } from "@connectrpc/connect";
 import { randomBytes } from "node:crypto";
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { Client } from "../client";
-import { completeFirstAttach, FirstAttachError } from "../firstattach";
-import { exec, ExitError as LibExitError, OutcomeUnknownError as LibOutcomeUnknown, isGuestHeld, type ExecResult } from "../exec";
-import { tarGzDir, writeFile } from "../files";
-import { Phase, type Session } from "../gen/sandbox/runtime/session/v1/session_pb";
-import { createSession, deleteSession, getSession, heartbeatSession, listSessions, NotFoundError as LibNotFound, parkSession, repositorySession, resolveSession, workspaceSession } from "../sessions";
-import { tarBytes, type TarEntry } from "../tar";
+import { setTimeout as sleep } from "node:timers/promises";
+import { gzipSync } from "node:zlib";
+import { Client } from "../client.js";
+import { completeFirstAttach, FirstAttachError } from "../firstattach.js";
+import { exec, ExitError as LibExitError, OutcomeUnknownError as LibOutcomeUnknown, isGuestHeld, type ExecResult } from "../exec.js";
+import { tarGzDir, writeFile } from "../files.js";
+import { Phase, type Session } from "../gen/sandbox/runtime/session/v1/session_pb.js";
+import { createSession, deleteSession, getSession, heartbeatSession, listSessions, NotFoundError as LibNotFound, parkSession, repositorySession, resolveSession, workspaceSession } from "../sessions.js";
+import { tarBytes, type TarEntry } from "../tar.js";
 import {
   CommandExitError,
   FileNotFoundError,
@@ -43,14 +45,14 @@ import {
   TimeoutError,
   WorkspacesNotEnabledError,
   type CommandResult,
-} from "./errors";
-import * as S from "./scripts";
-import { timings } from "./timings";
-import { extractTarGz } from "./untar";
+} from "./errors.js";
+import * as S from "./scripts.js";
+import { timings } from "./timings.js";
+import { extractTarGz } from "./untar.js";
 
-export * from "./errors";
-export { enableWorkspaces, workspacesStatus, type EnableOpts, type SetupOpts, type TermsDocument, type WorkspacesStatus } from "./setup";
-export { listOrganizations, type Organization } from "../orgs";
+export * from "./errors.js";
+export { enableWorkspaces, workspacesStatus, type EnableOpts, type SetupOpts, type TermsDocument, type WorkspacesStatus } from "./setup.js";
+export { listOrganizations, type Organization } from "../orgs.js";
 
 /** The toolchain a sandbox gets by default: a shell, core tools, git, curl, jq, Python and Node.js (Chainguard package names). */
 export const DEFAULT_PACKAGES: readonly string[] = ["bash", "coreutils", "curl", "git", "jq", "python-3.13", "nodejs-22"];
@@ -202,7 +204,7 @@ async function waitStarted(c: Client, name: string, limitMs: number): Promise<Se
     last = s;
     if (s.guestStartedTime) return s;
     if (s.message.includes("starting guest failed") && Date.now() - t0 > timings.placementGraceMs) throw new PlacementError(s.message);
-    await Bun.sleep(Math.max(Math.min(timings.startPollMs, deadline - Date.now()), 0));
+    await sleep(Math.max(Math.min(timings.startPollMs, deadline - Date.now()), 0));
   }
 }
 
@@ -233,14 +235,14 @@ async function deleteAndWait(c: Client, name: string): Promise<boolean> {
       if (e instanceof ConnectError && e.code === Code.NotFound) return true;
       failure = signal.aborted ? undefined : e;
     }
-    await Bun.sleep(Math.max(Math.min(timings.killPollMs, deadline - Date.now()), 0));
+    await sleep(Math.max(Math.min(timings.killPollMs, deadline - Date.now()), 0));
   }
   if (failure !== undefined) throw new TimeoutError(`could not confirm the sandbox is gone within ${waitMs} ms (last check: ${(wrap(failure) as Error).message})`);
   throw new TimeoutError(`the sandbox still exists ${waitMs} ms after the delete request`);
 }
 
 /** Passes a chunk of bytes to a text callback, holding back an incomplete UTF-8 character; with no chunk, flushes. */
-function emit(decoder: TextDecoder, cb: ((data: string) => void) | undefined, chunk?: Uint8Array): void {
+function emit(decoder: InstanceType<typeof TextDecoder>, cb: ((data: string) => void) | undefined, chunk?: Uint8Array): void {
   if (!cb) return;
   const s = chunk ? decoder.decode(chunk, { stream: true }) : decoder.decode();
   if (s) cb(s);
@@ -820,7 +822,7 @@ export class Filesystem {
       entries.push({ name: gp.slice(1), data: typeof f.data === "string" ? enc.encode(f.data) : f.data, mode: (f.mode ?? 0o644) & 0o777 || 0o644, mtime: now });
       infos.push({ name: basename(gp), path: gp, type: "file" });
     }
-    await this.untar(Bun.gzipSync(tarBytes(entries)), "/");
+    await this.untar(gzipSync(tarBytes(entries)), "/");
     return infos;
   }
 

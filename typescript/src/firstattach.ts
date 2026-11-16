@@ -5,14 +5,15 @@
 // attach, uploads an empty tree (an empty tar archive) when the service asks for one, waits for
 // WorkspaceReady, and detaches by canceling the stream. The session keeps running.
 import { create } from "@bufbuild/protobuf";
+import { gzipSync } from "node:zlib";
 import {
   AttachRequestSchema,
   AttachRequest_WorkspaceChunk_Encoding,
   AttachRequest_WorkspaceChunk_Format,
   type AttachRequest,
   type AttachResponse,
-} from "./gen/sandbox/runtime/session/v1/session_pb";
-import type { Client } from "./client";
+} from "./gen/sandbox/runtime/session/v1/session_pb.js";
+import type { Client } from "./client.js";
 
 /** An empty tar archive: the end-of-archive marker, two 512-byte zero blocks. */
 export const EMPTY_TAR = new Uint8Array(1024);
@@ -81,7 +82,7 @@ export async function completeFirstAttach(c: Client, name: string, o: FirstAttac
               input: {
                 case: "workspaceChunk",
                 value: {
-                  data: gzip ? Bun.gzipSync(EMPTY_TAR) : EMPTY_TAR,
+                  data: gzip ? gzipSync(EMPTY_TAR) : EMPTY_TAR,
                   last: true,
                   format: AttachRequest_WorkspaceChunk_Format.FULL_TAR,
                   encoding: gzip ? AttachRequest_WorkspaceChunk_Encoding.GZIP : AttachRequest_WorkspaceChunk_Encoding.ENCODING_UNSPECIFIED,

@@ -15,7 +15,7 @@ import {
   refreshLogin,
   startLoginServer,
   tokenClaims,
-} from "../src/index";
+} from "../src/index.js";
 
 const b64 = (s: string) => Buffer.from(s).toString("base64url");
 const fakeJwt = (...aud: string[]) => `${b64("{}")}.${b64(JSON.stringify({ sub: "user1", aud, exp: Math.floor(Date.now() / 1000) + 3600 }))}.sig`;
@@ -104,7 +104,7 @@ test("browserLogin errors, and prints the URL when no browser opens", async () =
 });
 
 test("the callback server ignores stray requests and keeps the first answer", async () => {
-  const s = startLoginServer();
+  const s = await startLoginServer();
   try {
     const base = s.callbackUrl.split("/callback")[0]!.replace("localhost", "127.0.0.1");
     expect((await fetch(`${base}/`)).status).toBe(404);

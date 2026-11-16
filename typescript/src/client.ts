@@ -1,9 +1,9 @@
 // Connection to the Sessions service. Mirrors the Go SDK's workspaces/client.go.
 import { createClient, type Client as ConnectClient, type Interceptor, type Transport } from "@connectrpc/connect";
 import { createGrpcTransport } from "@connectrpc/connect-node";
-import { Sessions } from "./gen/sandbox/runtime/session/v1/session_pb";
-import { defaultTokenSource, ENV_AUTH_TOKEN, type TokenSource } from "./auth";
-import { detectInstance, ENV_NO_DETECT_INSTANCE, noInstanceMessage, platformTokenSource } from "./orgs";
+import { Sessions } from "./gen/sandbox/runtime/session/v1/session_pb.js";
+import { defaultTokenSource, ENV_AUTH_TOKEN, type TokenSource } from "./auth.js";
+import { detectInstance, ENV_NO_DETECT_INSTANCE, noInstanceMessage, platformTokenSource } from "./orgs.js";
 
 export const DEFAULT_URL = "https://sessions.chainbox.dev";
 export const DEFAULT_WORK_DIR = "/work";

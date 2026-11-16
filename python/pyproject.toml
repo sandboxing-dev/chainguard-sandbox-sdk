@@ -5,6 +5,15 @@ description = "Simple Chainguard Sandbox SDK for Python: create sandboxes on Cha
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
+keywords = ["chainguard", "sandbox", "workspaces", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
 dependencies = [
     # the generated stubs check these runtime versions (gencode: protobuf 7.35.1, grpcio 1.85.1)
     "grpcio>=1.85.1",

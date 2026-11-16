@@ -8,10 +8,10 @@ import {
   SessionSchema,
   Session_ParkRequest,
   type Session,
-} from "./gen/sandbox/runtime/session/v1/session_pb";
-import type { Client } from "./client";
-import { normalizeGitHubUrl } from "./url";
-import defaultEnvironmentText from "./default_environment.yaml" with { type: "text" };
+} from "./gen/sandbox/runtime/session/v1/session_pb.js";
+import type { Client } from "./client.js";
+import { normalizeGitHubUrl } from "./url.js";
+import defaultEnvironmentText from "./default_environment.js";
 
 export type { Session };
 

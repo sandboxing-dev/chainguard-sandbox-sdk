@@ -3,10 +3,10 @@ import { expect, test } from "bun:test";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { tarBytes } from "../src/tar";
-import { environmentDocument, parseEntries, parsePoll } from "../src/sandbox";
-import * as S from "../src/sandbox/scripts";
-import { extractTarGz } from "../src/sandbox/untar";
+import { tarBytes } from "../src/tar.js";
+import { environmentDocument, parseEntries, parsePoll } from "../src/sandbox/index.js";
+import * as S from "../src/sandbox/scripts.js";
+import { extractTarGz } from "../src/sandbox/untar.js";
 
 const enc = new TextEncoder();
 // The Go SDK in this repository is the source of the scripts.

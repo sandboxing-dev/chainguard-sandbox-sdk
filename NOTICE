@@ -7,5 +7,5 @@ This repository includes material from third parties:
 
 - The browser login flow (go/workspaces/login.go and its Python and TypeScript ports) is adapted from chainguard.dev/sdk/auth/login v0.1.50 (https://github.com/chainguard-dev/sdk), Copyright 2023 Chainguard, Inc., Apache License 2.0.
 
-- The default environment document (go/workspaces/default_environment.yaml and its Python and
-  TypeScript copies) is the document chainctl 0.2.398 generates for a directory without an environment file. It carries its original notice: Copyright 2026 Chainguard, Inc., Apache License 2.0.
+- The default environment document (go/workspaces/default_environment.yaml, its Python copy and
+  typescript/src/default_environment.ts) is the document chainctl 0.2.398 generates for a directory without an environment file. It carries its original notice: Copyright 2026 Chainguard, Inc., Apache License 2.0.
