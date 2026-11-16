@@ -420,8 +420,8 @@ type LoginStore interface {
 }
 
 // FileLoginStore stores logins in a JSON file (0600, in a 0700 directory).
-// The Go, Python and TypeScript libraries share DefaultLoginFile, so one
-// login serves all three.
+// The Go, Python, TypeScript and Rust libraries share DefaultLoginFile, so
+// one login serves all four.
 type FileLoginStore struct{ Path string }
 
 // DefaultLoginFile is <user config dir>/chainguard-sandbox/login.json: on macOS
@@ -519,7 +519,7 @@ func (f FileLoginStore) Save(issuer, refreshToken string) error {
 
 // Lock takes <file>.lock, created exclusively; a lock older than two
 // minutes is taken to be left over from a crashed process. The same scheme
-// is used by the Python and TypeScript libraries.
+// is used by the Python, TypeScript and Rust libraries.
 func (f FileLoginStore) Lock(ctx context.Context) (func(), error) {
 	p := f.path() + ".lock"
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {

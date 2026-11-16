@@ -1,7 +1,7 @@
 package sandbox
 
 // Shell programs run in the sandbox over Exec. They are the same, byte for
-// byte, in the Go, Python and TypeScript sandbox packages, and stick to POSIX
+// byte, in the Go, Python, TypeScript and Rust sandbox packages, and stick to POSIX
 // sh plus busybox/coreutils tools, which every Workspaces environment has.
 
 // stateDir holds background-command state in the guest. /tmp survives a park

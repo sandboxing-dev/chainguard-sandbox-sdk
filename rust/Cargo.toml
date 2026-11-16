@@ -1,0 +1,44 @@
+[package]
+name = "chainguard-sandbox-sdk"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Simple Chainguard Sandbox SDK for Rust: create sandboxes on Chainguard Workspaces, run commands, move files (unofficial)"
+license = "Apache-2.0"
+repository = "https://github.com/sandboxing-dev/chainguard-sandbox-sdk"
+homepage = "https://chainguard-sdk.sandboxing.dev/"
+documentation = "https://chainguard-sdk.sandboxing.dev/reference/rust/"
+readme = "README.md"
+keywords = ["chainguard", "sandbox", "workspaces", "sdk"]
+categories = ["api-bindings", "development-tools"]
+include = ["src/**", "examples/**", "tests/**", "README.md", "LICENSE", "NOTICE"]
+
+[lib]
+name = "chainguard_sandbox"
+
+[[bin]]
+name = "chainguard-sandbox"
+path = "src/bin/chainguard-sandbox.rs"
+
+[dependencies]
+base64 = "0.23"
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+flate2 = "1.1"
+getrandom = "0.4"
+percent-encoding = "2.3"
+prost = "0.14.6"
+prost-types = "0.14.6"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+tar = "0.4.46"
+thiserror = "2"
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "net", "time", "sync", "io-util", "io-std", "fs", "process", "signal"] }
+tokio-stream = "0.1.19"
+tonic = { version = "0.14.9", default-features = false, features = ["channel", "codegen", "tls-aws-lc", "tls-native-roots"] }
+tonic-prost = "0.14.9"
+url = "2.5"
+
+[dev-dependencies]
+tonic = { version = "0.14.9", default-features = false, features = ["channel", "codegen", "server", "router"] }

@@ -64,7 +64,7 @@ uv run chainguard-sandbox logout
 ```
 
 - **Shared:** the saved login (`~/Library/Application Support/chainguard-sandbox/login.json` on macOS,
-  `~/.config/chainguard-sandbox/login.json` on Linux) is shared with the Go and TypeScript SDKs.
+  `~/.config/chainguard-sandbox/login.json` on Linux) is shared with the Go, TypeScript and Rust SDKs.
 - **Lifetime:** it lasts as long as it's used at least once every 20 hours. If a run opens your browser,
   the login expired: approve it and the run continues.
 

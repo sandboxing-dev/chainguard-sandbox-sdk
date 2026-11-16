@@ -15,7 +15,7 @@ Before you run it:
    (Or run this file from chainguard-sandbox-sdk/python/, where it's already importable.)
 
 1. Log in once. It opens your browser; the login is saved and shared by the
-   Go, Python and TypeScript SDKs:
+   Go, Python, TypeScript and Rust SDKs:
 
        uv run chainguard-sandbox login          # from python/; optional: add github, google-oauth2 or gitlab
 

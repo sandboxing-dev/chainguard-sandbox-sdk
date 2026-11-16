@@ -71,7 +71,7 @@ More: `examples/quickstart.ts` and `examples/tour.ts` (every part of the API). R
 ## Logging In
 
 The first call opens your browser to log in to Chainguard; the login is saved and refreshed, and shared
-with the Go and Python SDKs. To log in ahead of time, or check the saved login:
+with the Go, Python and Rust SDKs. To log in ahead of time, or check the saved login:
 
 ```sh
 bun bin/chainguard-sandbox.ts login      # optional: github, google-oauth2 or gitlab

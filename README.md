@@ -1,8 +1,8 @@
 # Simple Chainguard Sandbox SDK
 
 Create a sandbox on [Chainguard Workspaces](https://console.chainguard.dev/workspaces/signup), run commands in it, move files in
-and out, and delete it. It's the same workflow as Vercel Sandbox, E2B or Modal, in Go, Python and
-TypeScript.
+and out, and delete it. It's the same workflow as Vercel Sandbox, E2B or Modal, in Go, Python,
+TypeScript and Rust.
 
 **Documentation:** https://chainguard-sdk.sandboxing.dev/
 
@@ -25,6 +25,7 @@ with Sandbox.create(packages=["bash", "coreutils", "python-3.13"]) as sbx:   # d
 | Go 1.23+ | [`go/`](go/) | `go get github.com/sandboxing-dev/chainguard-sandbox-sdk/go@latest` | `github.com/sandboxing-dev/chainguard-sandbox-sdk/go/sandbox` |
 | Python 3.12+ | [`python/`](python/) | `uv add "chainguard-sandbox-sdk @ git+https://github.com/sandboxing-dev/chainguard-sandbox-sdk#subdirectory=python"` | `from chainguard_sandbox import Sandbox` |
 | TypeScript (Node.js 20.10+ or Bun 1.3+) | [`typescript/`](typescript/) | clone this repository, then `bun add ./chainguard-sandbox-sdk/typescript` | `import { Sandbox } from "chainguard-sandbox-sdk"` |
+| Rust 1.85+ | [`rust/`](rust/) | `cargo add chainguard-sandbox-sdk --git https://github.com/sandboxing-dev/chainguard-sandbox-sdk` | `use chainguard_sandbox::Sandbox;` |
 
 Each directory has its own README, tests and example programs (`examples/`).
 
@@ -37,7 +38,7 @@ language. In short:
    [console.chainguard.dev/workspaces/signup](https://console.chainguard.dev/workspaces/signup). The sign-up
    flow asks for your new organization's details: finish creating the organization before you go on.
 2. **Install the SDK into a project** (see each language's README for the exact commands).
-3. **Log in** once, with the CLI that comes with any of the packages. It opens your browser, and all three
+3. **Log in** once, with the CLI that comes with any of the packages. It opens your browser, and all four
    packages share the saved login:
 
     ```sh
@@ -47,7 +48,8 @@ language. In short:
     ```
 
    The same CLI comes with the other packages. In a clone: `uv run chainguard-sandbox login` from `python/`, or
-   `bun bin/chainguard-sandbox.ts login` from `typescript/` (after `bun install`).
+   `bun bin/chainguard-sandbox.ts login` from `typescript/` (after `bun install`), or
+   `cargo run --bin chainguard-sandbox -- login` from `rust/`.
 
 4. **Turn on Workspaces for the organization**, once, as one of its owners. A new organization starts with it
    off, and every create then fails with "this organization is not entitled to Chainguard Workspaces".
@@ -61,7 +63,7 @@ language. In short:
     ```
 
    `enable` lists the legal documents the organization has to accept and asks before accepting them. The
-   same can be done from code (`enable_workspaces`, `enableWorkspaces`, `sandbox.Enable`) or with Chainguard's
+   same can be done from code (`enable_workspaces` in Python and Rust, `enableWorkspaces`, `sandbox.Enable`) or with Chainguard's
    own CLI (`chainctl develop init --parent XXXXXX`).
 5. **Choose the organization**, if you belong to more than one: `export CHAINCTL_SANDBOX_INSTANCE=XXXXXX`, or pass
    it in code. List your organization IDs with `… chainguard-sandbox orgs`. With a single organization it's
@@ -73,10 +75,12 @@ language. In short:
 Each package has two layers:
 
 - **The sandbox API** (create, commands, files, pause, delete), shaped like the Vercel Sandbox, E2B and
-  Modal SDKs: Go `…/go/sandbox`, Python `chainguard_sandbox`, TypeScript `chainguard-sandbox-sdk`.
+  Modal SDKs: Go `…/go/sandbox`, Python `chainguard_sandbox`, TypeScript `chainguard-sandbox-sdk`, Rust
+  `chainguard_sandbox`.
 - **`workspaces`, the lower level it's built on:** a client for the Workspaces Sessions API (gRPC), the
   browser login and token refresh, and organization detection, covering only what the sandbox API needs.
-  Go `…/go/workspaces`, Python `chainguard_sandbox.workspaces`, TypeScript `chainguard-sandbox-sdk/workspaces`.
+  Go `…/go/workspaces`, Python `chainguard_sandbox.workspaces`, TypeScript `chainguard-sandbox-sdk/workspaces`,
+  Rust `chainguard_sandbox::workspaces`.
 
 The protocol is in [`proto/sandbox/runtime/session/v1/session.proto`](proto/sandbox/runtime/session/v1/session.proto):
 the subset of the Sessions API the SDK uses (eight RPCs), with the service's real names and field numbers.
@@ -88,15 +92,16 @@ it.
 ## Development
 
 ```sh
-scripts/gen-proto.sh                    # regenerate the Go, Python and TypeScript code from proto/
+scripts/gen-proto.sh                    # regenerate the Go, Python, TypeScript and Rust code from proto/
 python3 scripts/gen_sandbox_scripts.py  # regenerate the sandbox shell scripts from go/sandbox/scripts.go
 
 (cd go && go test -race ./...)
 (cd python && uv run pytest -q)
 (cd typescript && bun install && bun test)
+(cd rust && cargo test)
 ```
 
-Publishing the Python and TypeScript packages: [`PUBLISHING.md`](PUBLISHING.md).
+Publishing the Python, TypeScript and Rust packages: [`PUBLISHING.md`](PUBLISHING.md).
 
 The unit tests use in-process fake servers and don't contact the service. `scripts/gen-proto.sh` lists
 the code generators it needs.

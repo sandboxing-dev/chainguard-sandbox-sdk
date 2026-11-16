@@ -139,7 +139,7 @@ func (c *cachedToken) Token(ctx context.Context) (string, error) {
 }
 
 func (c *cachedToken) fetch(f *tokenFetch) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), cachedFetchTimeout)
 	defer cancel()
 	tok, err := c.src.Token(ctx)
 	c.mu.Lock()
@@ -155,6 +155,10 @@ func (c *cachedToken) fetch(f *tokenFetch) {
 	f.tok, f.err = tok, err
 	close(f.done)
 }
+
+// cachedFetchTimeout bounds a shared fetch. It leaves room for a browser login
+// (BrowserLoginToken allows 10 minutes) plus the refresh that follows.
+const cachedFetchTimeout = 11 * time.Minute
 
 // Invalidate forgets the cached token.
 func (c *cachedToken) Invalidate() {

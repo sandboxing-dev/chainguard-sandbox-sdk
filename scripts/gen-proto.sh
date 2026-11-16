@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Generate the Go, Python and TypeScript code for proto/sandbox/runtime/session/v1/session.proto.
+# Generate the Go, Python, TypeScript and Rust code for proto/sandbox/runtime/session/v1/session.proto.
 #
-#   scripts/gen-proto.sh            all three
-#   scripts/gen-proto.sh go|python|typescript
+#   scripts/gen-proto.sh            all four
+#   scripts/gen-proto.sh go|python|typescript|rust
 #
 # Needs protoc (28.x) and:
 #   go          protoc-gen-go v1.36.6 and protoc-gen-go-grpc v1.5.1 on PATH (or GOBIN=...):
@@ -10,6 +10,7 @@
 #                 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 #   python      uv (grpcio-tools is fetched on demand)
 #   typescript  bun, with `bun install` run in typescript/ (protoc-gen-es is a dev dependency)
+#   rust        cargo (rust/gen runs tonic-prost-build, which calls protoc)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PROTO=sandbox/runtime/session/v1/session.proto
@@ -47,4 +48,11 @@ if [[ $want == all || $want == typescript ]]; then
     --es_out="$out" --es_opt=target=ts,import_extension=none \
     "$PROTO"
   echo "typescript: $out"
+fi
+
+if [[ $want == all || $want == rust ]]; then
+  out=rust/src/workspaces/gen
+  rm -rf "$out" && mkdir -p "$out"
+  cargo run --quiet --manifest-path rust/gen/Cargo.toml -- proto "$out"
+  echo "rust: $out"
 fi

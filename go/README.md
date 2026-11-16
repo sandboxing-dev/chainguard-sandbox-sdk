@@ -77,7 +77,7 @@ More: [`examples/quickstart`](examples/quickstart/main.go) and [`examples/tour`]
 ## Logging In
 
 The first call opens your browser to log in to Chainguard. The login is saved and shared by the Go,
-Python and TypeScript SDKs, and lasts as long as it's used at least once every 20 hours. To log in ahead of
+Python, TypeScript and Rust SDKs, and lasts as long as it's used at least once every 20 hours. To log in ahead of
 time, or to renew an expired login:
 
 ```sh

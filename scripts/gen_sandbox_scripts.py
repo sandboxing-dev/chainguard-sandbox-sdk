@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generate the Python and TypeScript copies of the sandbox shell scripts from the Go source.
+"""Generate the Python, TypeScript and Rust copies of the sandbox shell scripts from the Go source.
 
 go/sandbox/scripts.go is the single source. This writes
-python/src/chainguard_sandbox/_scripts.py and typescript/src/sandbox/scripts.ts with
-byte-identical script text.
+python/src/chainguard_sandbox/_scripts.py, typescript/src/sandbox/scripts.ts and
+rust/src/scripts.rs with byte-identical script text.
 
-    python3 scripts/gen_sandbox_scripts.py                      both
+    python3 scripts/gen_sandbox_scripts.py                      all three
     python3 scripts/gen_sandbox_scripts.py --only python        one of them
     python3 scripts/gen_sandbox_scripts.py --source FILE.go     another Go source
 """
@@ -18,10 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 GO = ROOT / "go/sandbox/scripts.go"
 PY = ROOT / "python/src/chainguard_sandbox/_scripts.py"
 TS = ROOT / "typescript/src/sandbox/scripts.ts"
+RS = ROOT / "rust/src/scripts.rs"
 
 ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 ap.add_argument("--source", type=Path, default=GO, help="the Go scripts file (default: go/sandbox/scripts.go)")
-ap.add_argument("--only", choices=["python", "typescript"], help="write only one of the outputs")
+ap.add_argument("--only", choices=["python", "typescript", "rust"], help="write only one of the outputs")
 args = ap.parse_args()
 
 go = args.source.read_text()
@@ -60,4 +61,22 @@ if args.only in (None, "typescript"):
     TS.parent.mkdir(parents=True, exist_ok=True)
     TS.write_text("\n".join(ts) + "\n")
     written.append(TS)
+if args.only in (None, "rust"):
+
+    def raw(v: str) -> str:
+        n = 1
+        while '"' + "#" * n in v:
+            n += 1
+        return "r" + "#" * n + '"' + v + '"' + "#" * n
+
+    def rtype(v) -> str:
+        return "&str" if isinstance(v, str) else ("usize" if v > 255 else "i32")
+
+    rs = [f"//! Shell programs run in the sandbox over Exec.\n//!\n//! {header}\n//! POSIX sh + busybox/coreutils.", ""]
+    rs += ["#![allow(dead_code)]", ""]
+    rs += [f"pub(crate) const {snake(k)}: {rtype(v)} = {raw(v) if isinstance(v, str) else v};" for k, v in consts.items()] + [""]
+    rs += [f"pub(crate) const {snake(n)}: &str = {raw(vals[n])};" for n in names]
+    RS.parent.mkdir(parents=True, exist_ok=True)
+    RS.write_text("\n".join(rs) + "\n")
+    written.append(RS)
 print(f"wrote {len(names)} scripts to " + " and ".join(str(p.relative_to(ROOT)) for p in written))

@@ -8,6 +8,11 @@ __pycache__/
 # TypeScript
 node_modules/
 typescript/dist/
+# Rust
+rust/target/
+rust/gen/target/
+rust/LICENSE
+rust/NOTICE
 typescript/LICENSE
 typescript/NOTICE
 # Python builds

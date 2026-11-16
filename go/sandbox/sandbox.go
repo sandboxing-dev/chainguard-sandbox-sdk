@@ -455,7 +455,12 @@ func deleteAndWait(ctx context.Context, c *workspaces.Client, name string) (bool
 		if status.Code(err) == codes.NotFound {
 			return true, nil
 		}
-		if lastErr = err; dctx.Err() == nil && err != nil {
+		switch {
+		case err == nil:
+			lastErr = nil
+		case dctx.Err() != nil:
+			// Cut off by the deadline: keep what the last complete check said.
+		default:
 			lastErr = wrapErr(err)
 		}
 		select {

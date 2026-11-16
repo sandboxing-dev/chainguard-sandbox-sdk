@@ -233,7 +233,7 @@ async function deleteAndWait(c: Client, name: string): Promise<boolean> {
       failure = undefined;
     } catch (e) {
       if (e instanceof ConnectError && e.code === Code.NotFound) return true;
-      failure = signal.aborted ? undefined : e;
+      if (!signal.aborted) failure = e; // a check cut off by the deadline keeps the last answer
     }
     await sleep(Math.max(Math.min(timings.killPollMs, deadline - Date.now()), 0));
   }

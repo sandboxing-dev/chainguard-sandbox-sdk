@@ -8,7 +8,7 @@
 // Before you run it (from the go/ directory of this repository):
 //
 //  1. Log in once. It opens your browser; the login is saved and shared by
-//     the Go, Python and TypeScript libraries:
+//     the Go, Python, TypeScript and Rust libraries:
 //
 //     go run ./cmd/chainguard-sandbox login        # optional: add github, google-oauth2 or gitlab
 //

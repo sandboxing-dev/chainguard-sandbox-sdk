@@ -463,7 +463,8 @@ def _delete_and_wait(c: Client, name: str) -> bool:
         except (grpc.RpcError, AuthTimeoutError) as e:
             if isinstance(e, grpc.RpcError) and e.code() == grpc.StatusCode.NOT_FOUND:
                 return True
-            failure = None if _deadline_passed(e, deadline) else e
+            if not _deadline_passed(e, deadline):  # a check cut off by the deadline keeps the last answer
+                failure = e
         time.sleep(max(min(_KILL_POLL, deadline - time.monotonic()), 0))
     if failure is not None:
         raise TimeoutError(f"could not confirm the sandbox is gone within {_KILL_WAIT:g}s (last check: {_wrap(failure)})") from failure

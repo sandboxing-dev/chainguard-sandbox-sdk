@@ -1,0 +1,11 @@
+# Regenerates rust/src/workspaces/gen from proto/ (run by scripts/gen-proto.sh rust). Not published.
+[package]
+name = "chainguard-sandbox-gen"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tonic-prost-build = "0.14.9"
+
+[workspace]

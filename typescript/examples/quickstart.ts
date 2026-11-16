@@ -15,7 +15,7 @@
 //     (In your own project, add it with: bun add ../chainguard-sandbox-sdk/typescript)
 //
 //  1. Log in once, from chainguard-sandbox-sdk/typescript. It opens your browser; the login is saved and
-//     shared by the Go, Python and TypeScript SDKs:
+//     shared by the Go, Python, TypeScript and Rust SDKs:
 //
 //        bun bin/chainguard-sandbox.ts login     # optional: add github, google-oauth2 or gitlab
 //
