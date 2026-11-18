@@ -123,6 +123,11 @@ Set the organization explicitly in CI: auto-detection needs a second, account-AP
 and `file_id_token` read an OIDC token from an environment variable or a file (GitLab, Kubernetes).
 Starter organizations can't create identities.
 
+## OpenAI Agents SDK
+
+To run OpenAI Agents SDK sandbox agents in Chainguard Workspaces sandboxes, use the provider in
+[`../integrations/openai-agents/`](../integrations/openai-agents/) (`chainguard-sandbox-openai-agents`).
+
 ## Lower-Level Client
 
 `chainguard_sandbox.workspaces.Client` is the thin gRPC client the sandbox API is built on: `create`, `get`, `list`,

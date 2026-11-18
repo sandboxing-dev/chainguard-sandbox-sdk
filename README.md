@@ -29,6 +29,12 @@ with Sandbox.create(packages=["bash", "coreutils", "python-3.13"]) as sbx:   # d
 
 Each directory has its own README, tests and example programs (`examples/`).
 
+## Integrations
+
+| Integration | Directory | Install |
+|---|---|---|
+| [OpenAI Agents SDK](https://github.com/openai/openai-agents-python) sandbox provider (Python) | [`integrations/openai-agents/`](integrations/openai-agents/) | `uv add "chainguard-sandbox-openai-agents @ git+https://github.com/sandboxing-dev/chainguard-sandbox-sdk#subdirectory=integrations/openai-agents"` |
+
 ## Getting Started
 
 The [Quickstart](https://chainguard-sdk.sandboxing.dev/quickstart/) has every step with commands for each
@@ -99,9 +105,10 @@ python3 scripts/gen_sandbox_scripts.py  # regenerate the sandbox shell scripts f
 (cd python && uv run pytest -q)
 (cd typescript && bun install && bun test)
 (cd rust && cargo test)
+(cd integrations/openai-agents && uv run pytest -q)
 ```
 
-Publishing the Python, TypeScript and Rust packages: [`PUBLISHING.md`](PUBLISHING.md).
+Publishing the Python, TypeScript and Rust packages and the integrations: [`PUBLISHING.md`](PUBLISHING.md).
 
 The unit tests use in-process fake servers and don't contact the service. `scripts/gen-proto.sh` lists
 the code generators it needs.

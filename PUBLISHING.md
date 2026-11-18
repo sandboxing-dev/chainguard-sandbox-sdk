@@ -64,6 +64,7 @@ Adding more owners to an unscoped package works on every registry without any of
     scripts/publish-python.sh --live
     scripts/publish-typescript.sh --live
     scripts/publish-rust.sh --live
+    scripts/publish-openai-agents.sh --live    # the OpenAI Agents SDK provider
     ```
 
     Each script runs the tests, builds the package, installs the built file into an empty environment and
@@ -82,7 +83,12 @@ Adding more owners to an unscoped package works on every registry without any of
     scripts/publish-python.sh --publish        # pypi.org token in UV_PUBLISH_TOKEN
     scripts/publish-typescript.sh --publish    # after npm login
     scripts/publish-rust.sh --publish          # after cargo login, from a committed tree
+    scripts/publish-openai-agents.sh --publish # after publish-python.sh: it depends on that package
     ```
+
+    `chainguard-sandbox-openai-agents` has its own version (in `integrations/openai-agents/pyproject.toml`)
+    and its own pinned `openai-agents` range: release it when the SDK changes in a way it uses, or when a
+    new `openai-agents` release has been tested. The SDK must be on PyPI first.
 
 5. Check the result from an empty directory:
 

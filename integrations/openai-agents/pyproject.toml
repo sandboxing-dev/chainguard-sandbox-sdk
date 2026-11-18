@@ -1,0 +1,51 @@
+[project]
+name = "chainguard-sandbox-openai-agents"
+version = "0.1.0"
+description = "Chainguard Workspaces as a sandbox provider for the OpenAI Agents SDK (unofficial)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+keywords = ["chainguard", "sandbox", "workspaces", "openai", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+]
+dependencies = [
+    "chainguard-sandbox-sdk>=0.1.0,<0.2",
+    # The provider uses the SDK's sandbox-session hooks, which OpenAI asks providers to pin and test.
+    "openai-agents>=0.24.0,<0.25",
+]
+
+[project.urls]
+Documentation = "https://chainguard-sdk.sandboxing.dev/guides/openai-agents/"
+Repository = "https://github.com/sandboxing-dev/chainguard-sandbox-sdk"
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "chainguard_sandbox_openai_agents"
+
+[tool.uv.sources]
+# In this repository, use the SDK next to it (published builds depend on the PyPI release).
+chainguard-sandbox-sdk = { path = "../../python", editable = true }
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.400",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pyright]
+include = ["src", "tests", "examples"]
